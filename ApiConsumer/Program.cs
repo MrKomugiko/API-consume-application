@@ -1,14 +1,8 @@
-﻿using HtmlAgilityPack;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml;
-using System.Xml.XPath;
 
 namespace ApiConsumer
 {
@@ -111,8 +105,14 @@ namespace ApiConsumer
             artykul = artykul.Replace("<b>", "").Replace("</b>", "").Replace("<p>", "").Replace("</p>", "");
             // Wyświetlenie artykułu.
             Console.WriteLine(artykul);
-
         }
 
+        /*
+         * TODO: Zapisywanie historii przeglądania
+         * TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML
+         * TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
+         * TODO: Wyświetlanie losowego artykułu
+         * TODO: Zmiana języka wyszukiwarki na polski d[-.o]b
+         */
     }
 }
