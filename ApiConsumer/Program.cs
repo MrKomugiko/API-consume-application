@@ -65,7 +65,7 @@ namespace ApiConsumer
         private async Task SearchInWikipedia(string searchQuery, int page) {
             Console.WriteLine("Rozpoczęcie wyszukiwania...");
             string response = await client.GetStringAsync(
-                $"https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
+                $"https://pl.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
             // Przekonwertowanie otrzymanych wyników za pomocą metody klasy JsonConverter, 
             //      ten mapuje otrzymane wyniki z formatu Json do obiektu klasy który został stworzony
             //      klasa "Respond" posiada odwołanie do klasy "Query" w któej znajduje sie lista "Search" z pobranymi danymi.
@@ -91,7 +91,7 @@ namespace ApiConsumer
             // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
             //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 175 znakow.
             string response = await client.GetStringAsync(
-            $"https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json");
+            $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json");
 
             // Zrzutowanie otrzymanej odpowiedzi na klase Json
             JObject o = JObject.Parse(response);
@@ -112,7 +112,7 @@ namespace ApiConsumer
          * TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML
          * TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
          * TODO: Wyświetlanie losowego artykułu
-         * TODO: Zmiana języka wyszukiwarki na polski d[-.o]b
+         * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
          */
     }
 }
