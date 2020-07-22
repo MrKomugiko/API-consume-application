@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using JsonSerializer = Newtonsoft.Json.JsonSerializer;
+using System.Linq;
 
 namespace ApiConsumer
 {
@@ -24,6 +25,8 @@ namespace ApiConsumer
         static async Task Main(string[] args) {
             // Niekończąca się pętla
             while (true) {
+            SavingAndLoadingHistory(CurrentHistoryOfSearching);                                                         // DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+            ShowRanking(GenerateRanking(OldHistoryOfSearching));// DEBUGG ale działa i do uzycia w kodzie , gdzies trzeba poprosic o wywolanie tej metody
                 int page = 1;
                 // Pobranie od użytkownika wartości do wyszukania
                 string szukanaFraza;
@@ -86,80 +89,129 @@ namespace ApiConsumer
             }
         }
 
-        // Wyświetlenie wyników z Wikipedi.
-        private async Task SearchInWikipedia(string searchQuery, int page) {
-            Console.WriteLine("Rozpoczęcie wyszukiwania...");
-            string response = await client.GetStringAsync(
-                $"https://pl.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
-            // Przekonwertowanie otrzymanych wyników za pomocą metody klasy JsonConverter, 
-            //      ten mapuje otrzymane wyniki z formatu Json do obiektu klasy który został stworzony
-            //      klasa "Respond" posiada odwołanie do klasy "Query" w któej znajduje sie lista "Search" z pobranymi danymi.
-            Respond search = JsonConvert.DeserializeObject<Respond>(response);
-            // W przypadku wyszukiwania kolejnych stron, konieczne jest ustawienie przesunięcia wyników o 10 
-            Continue newPage = new Continue();
-            newPage.sroffset = (page)*10;
-            search._continue = newPage;
-            // Przypisanie zwróconych danych do nowej listy ( dla celów estetycznych, łątwiejszego użycie pożniej w kodzie)
-            wynikiWyszukiwania = search.query;
-            // Wyświetlenie listy tytułów artykułów znalezionych w Wikipedii.
-            int index = 1;
-            foreach (Search item in wynikiWyszukiwania.search) {
-                Console.WriteLine($"[{index++}] {item.title}");
-            }
-            Console.WriteLine($"Strona [{(search._continue.sroffset / 10)+1} / {((search.query.searchinfo.totalhits / 10)<1000? (search.query.searchinfo.totalhits / 10):1000)}]");
-            Console.WriteLine("Wyszukiwanie zakończone");
-        }
-
-        // Wyświetlenie Pierwszych lini tekstu w artykule
-        private async Task GetWikipediaArticleById(int pageId, int length = 500) {
-            Console.WriteLine("Pobieranie artykułu...");
-            // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
-            //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 500 znakow.
-            string response = await client.GetStringAsync(
-            $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json&explaintext=1");
-
-            // Zrzutowanie otrzymanej odpowiedzi na klase Json
-            JObject o = JObject.Parse(response);
-            // Wyciągnięcie opisu dla danego id strony
-            JToken acme = o.SelectToken($"$.query.pages.{pageId}.extract");
-            // Wyciągnięcie drugiego paragrafu <p> z tekstu w formacie HTML
-            //      poprzez ręczne przycięcie tekstu szukając znacznika <p>
-            string artykul = acme.ToString();
-            // Usuwanie niepotrzebnych znaczników, w aplikacji konsolowej i tak sie nie przydadzą ;d
-     
-            artykul = artykul.Replace("<b>", "").Replace("</b>", "").Replace("<p>", "").Replace("</p>", "");
-            // Wyświetlenie artykułu.
-            Console.WriteLine(artykul);
-        }
-
-        private static void MakeSearchingLog(int pageId, string searchingQuery) {
-            SearchingHistory HistoryLog = new SearchingHistory {
-                DataWyszukiwania = DateTime.Now,
-                OdwiedzonaStrona = pageId,
-                WyszukiwanaFraza = searchingQuery
-            };
-            CurrentHistoryOfSearching.Add(HistoryLog);
-        }
-
-        private static void SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
-            // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta
-            if (OldHistoryOfSearching.Count == 0) {
-                var jsonFromFile = File.ReadAllText("D:\\searchinghistory.txt");
-                if(jsonFromFile != null) {
-                    OldHistoryOfSearching = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile);
+        #region Wikipedia API
+            // Wyświetlenie wyników z Wikipedi.
+            private async Task SearchInWikipedia(string searchQuery, int page) {
+                Console.WriteLine("Rozpoczęcie wyszukiwania...");
+                string response = await client.GetStringAsync(
+                    $"https://pl.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
+                // Przekonwertowanie otrzymanych wyników za pomocą metody klasy JsonConverter, 
+                //      ten mapuje otrzymane wyniki z formatu Json do obiektu klasy który został stworzony
+                //      klasa "Respond" posiada odwołanie do klasy "Query" w któej znajduje sie lista "Search" z pobranymi danymi.
+                Respond search = JsonConvert.DeserializeObject<Respond>(response);
+                // W przypadku wyszukiwania kolejnych stron, konieczne jest ustawienie przesunięcia wyników o 10 
+                Continue newPage = new Continue();
+                newPage.sroffset = (page)*10;
+                search._continue = newPage;
+                // Przypisanie zwróconych danych do nowej listy ( dla celów estetycznych, łątwiejszego użycie pożniej w kodzie)
+                wynikiWyszukiwania = search.query;
+                // Wyświetlenie listy tytułów artykułów znalezionych w Wikipedii.
+                int index = 1;
+                foreach (Search item in wynikiWyszukiwania.search) {
+                    Console.WriteLine($"[{index++}] {item.title}");
                 }
+                Console.WriteLine($"Strona [{(search._continue.sroffset / 10)+1} / {((search.query.searchinfo.totalhits / 10)<1000? (search.query.searchinfo.totalhits / 10):1000)}]");
+                Console.WriteLine("Wyszukiwanie zakończone");
             }
+            // Wyświetlenie Pierwszych lini tekstu w artykule
+            private async Task GetWikipediaArticleById(int pageId, int length = 500) {
+                Console.WriteLine("Pobieranie artykułu...");
+                // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
+                //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 500 znakow.
+                string response = await client.GetStringAsync(
+                $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json&explaintext=1");
 
-            //Aktualizowanie pliku na koniec działąnia programu pooprzez połączenie starej i nowej listy
-            //  następnie jej zapisanie do pliku ? nie wiem dlaczego nie moge do nadpisać a sam sie kasuje
-            //  więc nieefektywna opcja, pobieranie całości i zapisywanie całości od nowa 
-            currentHistory.AddRange(OldHistoryOfSearching);
-            string jsonString = Newtonsoft.Json.JsonConvert.SerializeObject(currentHistory);
-            File.WriteAllText("D:\\searchinghistory.txt", jsonString);
-        }
+                // Zrzutowanie otrzymanej odpowiedzi na klase Json
+                JObject o = JObject.Parse(response);
+                // Wyciągnięcie opisu dla danego id strony
+                JToken acme = o.SelectToken($"$.query.pages.{pageId}.extract");
+                // Wyciągnięcie drugiego paragrafu <p> z tekstu w formacie HTML
+                //      poprzez ręczne przycięcie tekstu szukając znacznika <p>
+                string artykul = acme.ToString();
+                // Usuwanie niepotrzebnych znaczników, w aplikacji konsolowej i tak sie nie przydadzą ;d
+     
+                artykul = artykul.Replace("<b>", "").Replace("</b>", "").Replace("<p>", "").Replace("</p>", "");
+                // Wyświetlenie artykułu.
+                Console.WriteLine(artykul);
+            }
+        #endregion
 
+        #region Saving and loaging stuff
+            private static void MakeSearchingLog(int pageId, string searchingQuery) {
+                SearchingHistory HistoryLog = new SearchingHistory {
+                    DataWyszukiwania = DateTime.Now,
+                    OdwiedzonaStrona = pageId,
+                    WyszukiwanaFraza = searchingQuery
+                };
+                CurrentHistoryOfSearching.Add(HistoryLog);
+            }
+            private static void SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
+                // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta      
+                if (OldHistoryOfSearching.Count == 0) {
+                    //////////// Tworzenie pustego pliku w razie gdyby go nie było xD
+                    //////////File.WriteAllText("D:\\searchinghistory.txt", null);
+                    var jsonFromFile = File.ReadAllText("D:\\searchinghistory.txt");
+                    if(jsonFromFile != null) {
+                        OldHistoryOfSearching = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile);
+                    } else {
+                        OldHistoryOfSearching.Add(currentHistory.First());
+                    }
+                }
 
+                // Aktualizowanie pliku na koniec działąnia programu pooprzez połączenie starej i nowej listy
+                //   następnie jej zapisanie do pliku ? nie wiem dlaczego nie moge do nadpisać a sam sie kasuje
+                //   więc nieefektywna opcja, pobieranie całości i zapisywanie całości od nowa 
+                OldHistoryOfSearching.AddRange(currentHistory);
+                // Po przepisaniu wynikow aktualna liczba wyszukiwan zostaje wyczyszczona
+                //   w innym wypadku liczba elementow zapisywanych podczas dzialania aplikacji, by je namnażała
+                currentHistory = null;
+                string jsonString = Newtonsoft.Json.JsonConvert.SerializeObject(OldHistoryOfSearching);
+                File.WriteAllText("D:\\searchinghistory.txt", jsonString);
+            }
+        #endregion
+        
+        #region Ranking stuff
+            private static List<Ranking> GenerateRanking(List<SearchingHistory> currentHistory) {
+                List<Ranking> result = new List<Ranking>();
+                int counter = 1;
 
+                List<Ranking> ranking = new List<Ranking>();
+                //pogrupowanie po jednakowych odwiedzonych stronach
+                var groupedResult = currentHistory.GroupBy(p => p.OdwiedzonaStrona);
+
+                //sprawdzenie co jest w grupach
+                foreach (var visitedGroup in groupedResult) {
+                    counter++;
+                    // Wypisanie unikatowych pageId ktore zostały odwiedzone
+                    ranking.Add(new Ranking {
+                        Id = counter,
+                        Position = counter,
+                        SearchedByQueryList = new List<string>(),
+                        Title = visitedGroup.Key.ToString(),
+                        Visited = 0
+                        }
+                    );
+                    foreach(SearchingHistory history in visitedGroup) {
+                        // w pętli dodawane będą wszystkie możliwe zapytania wywołane aby uzystać dostęp do tej konkretnej strony
+                        ranking.Where(p => p.Title == visitedGroup.Key.ToString()).First().SearchedByQueryList.Add(history.WyszukiwanaFraza);
+                        ranking.Where(p => p.Title == visitedGroup.Key.ToString()).First().Visited = visitedGroup.Count();
+                        // Console.WriteLine($"odwiedzone za pomocą zapytania :{history.WyszukiwanaFraza }");
+                    };
+            
+                }
+                return ranking.OrderByDescending(p=>p.Visited).ToList();
+            }
+            private static void ShowRanking(List<Ranking> rankingData) {                                               
+                int counter = 1;                                                                                       
+                foreach (var tytul in rankingData)                                                                     
+                    {                                                                                                     
+                    Console.WriteLine($"Pozycja[{counter}] | Tytul[{tytul.Title}] | Wyswietlenia[{tytul.Visited}]");   
+                    counter++;                                                                                         
+                }                                                                                                      
+            }
+        #endregion
+
+        #region NOTATNIK / TODOs / UWAGI I POMYSŁY
         /*
          * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
          * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
@@ -167,20 +219,24 @@ namespace ApiConsumer
          * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
          * [DONE] TODO: Poprawienie jakości wyszukiwania => wyświetlane były już przesunięte pozycje 
          *              (bez tych najbardziej pasujących, tylko od następnych 10ciu)
-         * TODO: Zapisywanie historii przeglądania
-         * TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
-         * TODO: Wyświetlanie losowego artykułu
+         * [DONE] TODO: Zapisywanie historii przeglądania
+         *        TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
+         * [----] TODO: Wyświetlanie losowego artykułu
+         *
+         *
+         *
+         * [DONE] TODO: Zapisywanie historii 
+         * [DONE] TODO: Tworzenie rankingu
+         * [DONE] TODO: Automatyczna aktualizacja pliku z historią wyszukiwania
+         *        TODO: Plik historii eksportowany jest do pliku podczas kończenia programu
+         *                  - pytanie o zgode?
+         * [DONE] TODO: wyświetlanie rankingu
+         * [DONE] TODO: Wyświetlanie posortowanego rankingu
+         *        TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
+         *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
+         *              który będzie sobie przypisywac w czasie tworzenia
+         *        TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
          */
-
-        /*
-         * Zapisywanie historii i tworzenie rankingu
-         * - historia "kumuluje" sie w czasie działania programu
-         * - plik historii eksportowany jest do pliku podczas kończenia programu
-         *      - pytanie o zgode?
-         *      - zrobic to w osobnych plikach?
-         * - dodanie opcji wyświetlenia rankingu poprzez załądowanie pliku
-         * - sortowanie danych z pliku względem popularności  
-         * - wyświetlanie rankingu
-         */
+        #endregion
     }
 }
