@@ -25,13 +25,11 @@ namespace ApiConsumer
         static async Task Main(string[] args) {
             // Niekończąca się pętla
             while (true) {
-            SavingAndLoadingHistory(CurrentHistoryOfSearching);                                                         // DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
-            ShowRanking(GenerateRanking(OldHistoryOfSearching));// DEBUGG ale działa i do uzycia w kodzie , gdzies trzeba poprosic o wywolanie tej metody
                 int page = 1;
                 // Pobranie od użytkownika wartości do wyszukania
                 string szukanaFraza;
                 do{
-                    Console.Clear();
+                    //Console.Clear();
                     Console.WriteLine(  "********************************\n"+
                                         "........:: Wikipedia ::........\n"+
                                         "********************************");
@@ -83,9 +81,13 @@ namespace ApiConsumer
                 } while (articleId !=0) ;
                 //utworzenie zrzutu wyszukiwanego obiektu i jego daty
                 Console.WriteLine("[ENTER] aby kontynuowac wikipedie.\n[Z-zapisz]\n[W-wyswietl] W.I.P");
-                if (Console.ReadLine().ToString() == "z") {
+                answer = Console.ReadLine().ToString();
+                if (answer == "z") {
                     SavingAndLoadingHistory(CurrentHistoryOfSearching);
-                        }
+                        };
+                if (answer == "w") {
+                    ShowRanking(GenerateRanking(OldHistoryOfSearching));
+                }
             }
         }
 
