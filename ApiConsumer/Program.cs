@@ -30,7 +30,7 @@ namespace ApiConsumer
                 Program program = new Program();
                 search:
                 // Asynchroniczne wywołanie - czekanie aż skończy się pobieranie danych 
-                await program.SearchInWikipedia(szukanaFraza, page);
+                await program.SearchInWikipedia(szukanaFraza, page-1);
                 restart:
                 Console.WriteLine("Przejsc na następna strone? [t/n] lub podaj numer strony.\n[ENTER] aby przejść dalej.\n");
                 var answer = Console.ReadLine();
@@ -41,14 +41,17 @@ namespace ApiConsumer
                             page++;
                             goto search;
                         }
-                    
+                        if ((Convert.ToInt32(answer) > 1001) && (Convert.ToInt32(answer) >= ( program.wynikiWyszukiwania.searchinfo.totalhits / 10))) {
+                            Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits / 10} ]");
+                            goto restart;
+                        }
                         if (Convert.ToInt32(answer) >= 1) {
                             page = Convert.ToInt32(answer);
                             goto search;
                         }
                     }
                 } catch (FormatException) {
-                        Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits/10} ]");
+                        Console.WriteLine($"Wprowadz poprawny numer strony [1 - {((program.wynikiWyszukiwania.searchinfo.totalhits/10)<1000?((program.wynikiWyszukiwania.searchinfo.totalhits / 10)):1000)} ]");
                         goto restart;
                     }
                 int articleId=1;
@@ -82,7 +85,7 @@ namespace ApiConsumer
             Respond search = JsonConvert.DeserializeObject<Respond>(response);
             // W przypadku wyszukiwania kolejnych stron, konieczne jest ustawienie przesunięcia wyników o 10 
             Continue newPage = new Continue();
-            newPage.sroffset = page * 10;
+            newPage.sroffset = (page)*10;
             search._continue = newPage;
             // Przypisanie zwróconych danych do nowej listy ( dla celów estetycznych, łątwiejszego użycie pożniej w kodzie)
             wynikiWyszukiwania = search.query;
@@ -91,7 +94,7 @@ namespace ApiConsumer
             foreach (Search item in wynikiWyszukiwania.search) {
                 Console.WriteLine($"[{index++}] {item.title}");
             }
-            Console.WriteLine($"Strona [{search._continue.sroffset / 10} / {search.query.searchinfo.totalhits / 10}]");
+            Console.WriteLine($"Strona [{(search._continue.sroffset / 10)+1} / {((search.query.searchinfo.totalhits / 10)<1000? (search.query.searchinfo.totalhits / 10):1000)}]");
             Console.WriteLine("Wyszukiwanie zakończone");
         }
 
@@ -101,7 +104,6 @@ namespace ApiConsumer
             // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
             //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 500 znakow.
             string response = await client.GetStringAsync(
-              //https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&continue=&titles=Earth&exchars=1200&explaintext=1
             $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json&explaintext=1");
 
             // Zrzutowanie otrzymanej odpowiedzi na klase Json
@@ -119,10 +121,12 @@ namespace ApiConsumer
         }
 
         /*
-         * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD
+         * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
          * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
          *              rozwiązanie => dodanie "explaintext=1" do url wikipedi
          * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
+         * [DONE] TODO: Poprawienie jakości wyszukiwania => wyświetlane były już przesunięte pozycje 
+         *              (bez tych najbardziej pasujących, tylko od następnych 10ciu)
          * TODO: Zapisywanie historii przeglądania
          * TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
          * TODO: Wyświetlanie losowego artykułu
