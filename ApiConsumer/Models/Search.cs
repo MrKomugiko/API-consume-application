@@ -2,7 +2,7 @@
 
 namespace ApiConsumer
 {
-    class Search
+    public class Search
     {
         public int ns { get; set; }
         public string title { get; set; }

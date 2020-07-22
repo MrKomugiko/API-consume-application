@@ -1,8 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using ApiConsumer.Models;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace ApiConsumer
 {
@@ -12,6 +18,9 @@ namespace ApiConsumer
         HttpClient client = new HttpClient();
         // Globalne wyniki wyszukiwania bo są wykorzystywane w całym projekcie
         Query wynikiWyszukiwania;
+        //lista wyszukiwanych elementow
+        static List<SearchingHistory> OldHistoryOfSearching = new List<SearchingHistory>();
+        static List<SearchingHistory> CurrentHistoryOfSearching = new List<SearchingHistory>();
         static async Task Main(string[] args) {
             // Niekończąca się pętla
             while (true) {
@@ -60,6 +69,7 @@ namespace ApiConsumer
                         try {
                             articleId = Convert.ToInt32(Console.ReadLine());
                             await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
+                                MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza);
                             break;
 
                         } catch (Exception e) {
@@ -68,9 +78,11 @@ namespace ApiConsumer
                         }
                   
                 } while (articleId !=0) ;
-
-                Console.WriteLine("[ENTER] aby kontynuowac.");
-                Console.Read();
+                //utworzenie zrzutu wyszukiwanego obiektu i jego daty
+                Console.WriteLine("[ENTER] aby kontynuowac wikipedie.\n[Z-zapisz]\n[W-wyswietl] W.I.P");
+                if (Console.ReadLine().ToString() == "z") {
+                    SavingAndLoadingHistory(CurrentHistoryOfSearching);
+                        }
             }
         }
 
@@ -120,6 +132,34 @@ namespace ApiConsumer
             Console.WriteLine(artykul);
         }
 
+        private static void MakeSearchingLog(int pageId, string searchingQuery) {
+            SearchingHistory HistoryLog = new SearchingHistory {
+                DataWyszukiwania = DateTime.Now,
+                OdwiedzonaStrona = pageId,
+                WyszukiwanaFraza = searchingQuery
+            };
+            CurrentHistoryOfSearching.Add(HistoryLog);
+        }
+
+        private static void SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
+            // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta
+            if (OldHistoryOfSearching.Count == 0) {
+                var jsonFromFile = File.ReadAllText("D:\\searchinghistory.txt");
+                if(jsonFromFile != null) {
+                    OldHistoryOfSearching = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile);
+                }
+            }
+
+            //Aktualizowanie pliku na koniec działąnia programu pooprzez połączenie starej i nowej listy
+            //  następnie jej zapisanie do pliku ? nie wiem dlaczego nie moge do nadpisać a sam sie kasuje
+            //  więc nieefektywna opcja, pobieranie całości i zapisywanie całości od nowa 
+            currentHistory.AddRange(OldHistoryOfSearching);
+            string jsonString = Newtonsoft.Json.JsonConvert.SerializeObject(currentHistory);
+            File.WriteAllText("D:\\searchinghistory.txt", jsonString);
+        }
+
+
+
         /*
          * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
          * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
@@ -130,6 +170,17 @@ namespace ApiConsumer
          * TODO: Zapisywanie historii przeglądania
          * TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
          * TODO: Wyświetlanie losowego artykułu
+         */
+
+        /*
+         * Zapisywanie historii i tworzenie rankingu
+         * - historia "kumuluje" sie w czasie działania programu
+         * - plik historii eksportowany jest do pliku podczas kończenia programu
+         *      - pytanie o zgode?
+         *      - zrobic to w osobnych plikach?
+         * - dodanie opcji wyświetlenia rankingu poprzez załądowanie pliku
+         * - sortowanie danych z pliku względem popularności  
+         * - wyświetlanie rankingu
          */
     }
 }
