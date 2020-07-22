@@ -18,12 +18,11 @@ namespace ApiConsumer
                 int page = 1;
                 // Pobranie od użytkownika wartości do wyszukania
                 string szukanaFraza;
-                do
-                {
+                do{
                     Console.Clear();
                     Console.WriteLine(  "********************************\n"+
                                         "........:: Wikipedia ::........\n"+
-                                        "********************************\n");
+                                        "********************************");
                     Console.Write("Wyszukaj: ");
                     szukanaFraza = Console.ReadLine();
                 }while(szukanaFraza == String.Empty);
@@ -38,23 +37,34 @@ namespace ApiConsumer
                 // Sprawdzanie wartosci wprowadzonych rpzez uzytkownika, w razie błedu wraca do początku.
                 try {
                     if (answer != "" && answer!="n") {
-                    if (answer.ToLower() == "t") {
-                        page++;
-                        goto search;
-                    }
+                        if (answer.ToLower() == "t") {
+                            page++;
+                            goto search;
+                        }
                     
                         if (Convert.ToInt32(answer) >= 1) {
                             page = Convert.ToInt32(answer);
                             goto search;
                         }
-                        }
-                    } catch (FormatException) {
+                    }
+                } catch (FormatException) {
                         Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits/10} ]");
                         goto restart;
                     }
-                Console.Write("Wybierz artykuł podając jej id [1-10] \n");
-                int articleId = Convert.ToInt32(Console.ReadLine());
-                await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId-1].pageid);
+                int articleId=1;
+                do {
+                    Console.Write("Wybierz artykuł podając jego id [1-10], [0 Aby zakończyć] \n");
+                        try {
+                            articleId = Convert.ToInt32(Console.ReadLine());
+                            await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
+                            break;
+
+                        } catch (Exception e) {
+                            Console.WriteLine("Wprowadz poprawny numer artykułu, aby zakończyć, wybierz [0].");
+                           // Console.WriteLine("DEBUG:" + e);
+                        }
+                  
+                } while (articleId !=0) ;
 
                 Console.WriteLine("[ENTER] aby kontynuowac.");
                 Console.Read();
@@ -86,12 +96,13 @@ namespace ApiConsumer
         }
 
         // Wyświetlenie Pierwszych lini tekstu w artykule
-        private async Task GetWikipediaArticleById(int pageId, int length = 175) {
+        private async Task GetWikipediaArticleById(int pageId, int length = 500) {
             Console.WriteLine("Pobieranie artykułu...");
             // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
-            //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 175 znakow.
+            //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 500 znakow.
             string response = await client.GetStringAsync(
-            $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json");
+              //https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&continue=&titles=Earth&exchars=1200&explaintext=1
+            $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json&explaintext=1");
 
             // Zrzutowanie otrzymanej odpowiedzi na klase Json
             JObject o = JObject.Parse(response);
@@ -108,11 +119,13 @@ namespace ApiConsumer
         }
 
         /*
+         * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD
+         * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
+         *              rozwiązanie => dodanie "explaintext=1" do url wikipedi
+         * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
          * TODO: Zapisywanie historii przeglądania
-         * TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML
          * TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
          * TODO: Wyświetlanie losowego artykułu
-         * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
          */
     }
 }
