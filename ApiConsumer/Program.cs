@@ -94,7 +94,7 @@ namespace ApiConsumer
         #region Wikipedia API
             // Wyświetlenie wyników z Wikipedi.
             private async Task SearchInWikipedia(string searchQuery, int page) {
-                Console.WriteLine("Rozpoczęcie wyszukiwania...");
+                // Console.WriteLine("Rozpoczęcie wyszukiwania...");
                 string response = await client.GetStringAsync(
                     $"https://pl.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
                 // Przekonwertowanie otrzymanych wyników za pomocą metody klasy JsonConverter, 
@@ -113,28 +113,21 @@ namespace ApiConsumer
                     Console.WriteLine($"[{index++}] {item.title}");
                 }
                 Console.WriteLine($"Strona [{(search._continue.sroffset / 10)+1} / {((search.query.searchinfo.totalhits / 10)<1000? (search.query.searchinfo.totalhits / 10):1000)}]");
-                Console.WriteLine("Wyszukiwanie zakończone");
+                // Console.WriteLine("Wyszukiwanie zakończone");
             }
             // Wyświetlenie Pierwszych lini tekstu w artykule
             private async Task GetWikipediaArticleById(int pageId, int length = 500) {
-                Console.WriteLine("Pobieranie artykułu...");
+                // Console.WriteLine("Pobieranie artykułu...");
                 // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
                 //      oraz długość tekstu jaka ma zostać wyświetlona domyślnie 500 znakow.
                 string response = await client.GetStringAsync(
                 $"https://pl.wikipedia.org/w/api.php?action=query&prop=extracts&exchars={length}&pageids={pageId}&format=json&explaintext=1");
-
                 // Zrzutowanie otrzymanej odpowiedzi na klase Json
                 JObject o = JObject.Parse(response);
                 // Wyciągnięcie opisu dla danego id strony
-                JToken acme = o.SelectToken($"$.query.pages.{pageId}.extract");
-                // Wyciągnięcie drugiego paragrafu <p> z tekstu w formacie HTML
-                //      poprzez ręczne przycięcie tekstu szukając znacznika <p>
-                string artykul = acme.ToString();
-                // Usuwanie niepotrzebnych znaczników, w aplikacji konsolowej i tak sie nie przydadzą ;d
-     
-                artykul = artykul.Replace("<b>", "").Replace("</b>", "").Replace("<p>", "").Replace("</p>", "");
+                JToken tekstArtykulu = o.SelectToken($"$.query.pages.{pageId}.extract");
                 // Wyświetlenie artykułu.
-                Console.WriteLine(artykul);
+                Console.WriteLine(tekstArtykulu.ToString());
             }
         #endregion
 
@@ -243,6 +236,7 @@ namespace ApiConsumer
          *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
          *              który będzie sobie przypisywac w czasie tworzenia
          * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
+         *        TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
          */
         #endregion
     }
