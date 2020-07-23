@@ -29,7 +29,6 @@ namespace ApiConsumer
                 // Pobranie od użytkownika wartości do wyszukania
                 string szukanaFraza;
                 do{
-                    //Console.Clear();
                     Console.WriteLine(  "********************************\n"+
                                         "........:: Wikipedia ::........\n"+
                                         "********************************");
@@ -70,7 +69,8 @@ namespace ApiConsumer
                         try {
                             articleId = Convert.ToInt32(Console.ReadLine());
                             await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
-                                MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza);
+                            // Utworzenie wpisu do loga 
+                                MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza, program.wynikiWyszukiwania.search[articleId - 1].title);
                             break;
 
                         } catch (Exception e) {
@@ -80,7 +80,7 @@ namespace ApiConsumer
                   
                 } while (articleId !=0) ;
                 //utworzenie zrzutu wyszukiwanego obiektu i jego daty
-                Console.WriteLine("[ENTER] aby kontynuowac wikipedie.\n[Z-zapisz]\n[W-wyswietl] W.I.P");
+                Console.WriteLine("[ENTER] aby kontynuowac wikipedie.\n[Z-zapisz]\n[W-wyswietl]");
                 answer = Console.ReadLine().ToString();
                 if (answer == "z") {
                     SavingAndLoadingHistory(CurrentHistoryOfSearching);
@@ -139,9 +139,10 @@ namespace ApiConsumer
         #endregion
 
         #region Saving and loaging stuff
-            private static void MakeSearchingLog(int pageId, string searchingQuery) {
+            private static void MakeSearchingLog(int pageId, string searchingQuery, string pageTitle) {
                 SearchingHistory HistoryLog = new SearchingHistory {
                     DataWyszukiwania = DateTime.Now,
+                    TytulWyszukanejStrony = pageTitle,
                     OdwiedzonaStrona = pageId,
                     WyszukiwanaFraza = searchingQuery
                 };
@@ -174,41 +175,46 @@ namespace ApiConsumer
         
         #region Ranking stuff
             private static List<Ranking> GenerateRanking(List<SearchingHistory> currentHistory) {
-                List<Ranking> result = new List<Ranking>();
-                int counter = 1;
 
                 List<Ranking> ranking = new List<Ranking>();
                 //pogrupowanie po jednakowych odwiedzonych stronach
                 var groupedResult = currentHistory.GroupBy(p => p.OdwiedzonaStrona);
 
+                int counter = 1;
                 //sprawdzenie co jest w grupach
                 foreach (var visitedGroup in groupedResult) {
                     counter++;
                     // Wypisanie unikatowych pageId ktore zostały odwiedzone
                     ranking.Add(new Ranking {
-                        Id = counter,
-                        Position = counter,
-                        SearchedByQueryList = new List<string>(),
-                        Title = visitedGroup.Key.ToString(),
-                        Visited = 0
+                        Id = visitedGroup.Key, // pageId
+                        Position = counter, // pozycja w rankingu
+                        SearchedByQueryList = new List<string>(), // lista wyszukiwan
+                        Title = "", // tytuł
+                        Visited = 0 // suma wystąpień strony
                         }
                     );
-                    foreach(SearchingHistory history in visitedGroup) {
+
+                foreach (SearchingHistory history in visitedGroup) {
                         // w pętli dodawane będą wszystkie możliwe zapytania wywołane aby uzystać dostęp do tej konkretnej strony
-                        ranking.Where(p => p.Title == visitedGroup.Key.ToString()).First().SearchedByQueryList.Add(history.WyszukiwanaFraza);
-                        ranking.Where(p => p.Title == visitedGroup.Key.ToString()).First().Visited = visitedGroup.Count();
-                        // Console.WriteLine($"odwiedzone za pomocą zapytania :{history.WyszukiwanaFraza }");
-                    };
-            
+                        ranking.Where(p => p.Id == visitedGroup.Key).First().SearchedByQueryList.Add(history.WyszukiwanaFraza);
+                        ranking.Where(p => p.Id == visitedGroup.Key).First().Visited = visitedGroup.Count();
+                        ranking.Where(p => p.Id == visitedGroup.Key).First().Title = history.TytulWyszukanejStrony;
+                };
+                
+                ranking = ranking.OrderByDescending(p => p.Visited).ToList();
+                counter = 1;
+                foreach (var pozycja in ranking) {
+                    pozycja.Position = counter;
+                    counter++;
                 }
-                return ranking.OrderByDescending(p=>p.Visited).ToList();
+
             }
-            private static void ShowRanking(List<Ranking> rankingData) {                                               
-                int counter = 1;                                                                                       
-                foreach (var tytul in rankingData)                                                                     
+            return ranking;
+            }
+            private static void ShowRanking(List<Ranking> rankingData) {                                                                                                                                     
+                foreach (var element in rankingData)                                                                     
                     {                                                                                                     
-                    Console.WriteLine($"Pozycja[{counter}] | Tytul[{tytul.Title}] | Wyswietlenia[{tytul.Visited}]");   
-                    counter++;                                                                                         
+                    Console.WriteLine($"Pozycja[{element.Position}] | Tytul[{element.Title}] | Wyswietlenia[{element.Visited}]");                                                                                        
                 }                                                                                                      
             }
         #endregion
@@ -231,13 +237,12 @@ namespace ApiConsumer
          * [DONE] TODO: Tworzenie rankingu
          * [DONE] TODO: Automatyczna aktualizacja pliku z historią wyszukiwania
          *        TODO: Plik historii eksportowany jest do pliku podczas kończenia programu
-         *                  - pytanie o zgode?
          * [DONE] TODO: wyświetlanie rankingu
          * [DONE] TODO: Wyświetlanie posortowanego rankingu
-         *        TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
+         * [DONE] TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
          *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
          *              który będzie sobie przypisywac w czasie tworzenia
-         *        TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
+         * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
          */
         #endregion
     }
