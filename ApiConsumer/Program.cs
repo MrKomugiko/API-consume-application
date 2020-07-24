@@ -58,7 +58,6 @@ namespace ApiConsumer
                         await program.SearchInWikipedia(szukanaFraza, page - 1);
                         Console.WriteLine("Przejsc na następna strone? [t/n] lub podaj numer strony.\n[ENTER] aby przejść dalej.\n");
                         var answer2 = Console.ReadLine();
-                        Console.Clear();
                         // Sprawdzanie wartosci wprowadzonych rpzez uzytkownika, w razie błedu wraca do początku.
                         try {
                             if (answer2 != "" && answer2 != "n") {
@@ -81,18 +80,18 @@ namespace ApiConsumer
                         }
                         int articleId = 1;
                         do {
-                            Console.Write("Wybierz artykuł podając jego id [1-10], [0 Aby zakończyć] \n");
+                            Console.Write("Wybierz artykuł podając jego id [1-10], [0] Aby zakończyć \n");
                             try {
-                                articleId = Convert.ToInt32(Console.ReadLine());
-                                Console.Clear();
+                                articleId = Convert.ToInt32(Console.ReadLine());       
                                 await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
                                 // Utworzenie wpisu do loga 
                                 MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza, program.wynikiWyszukiwania.search[articleId - 1].title);
                                 break;
 
-                            } catch (Exception e) {
-                                Console.WriteLine("Wprowadz poprawny numer artykułu, aby zakończyć, wybierz [0].");
-                                // Console.WriteLine("DEBUG:" + e);
+                            } catch (FormatException) {
+                                Console.WriteLine("Wprowadziles niepoprawny numer artykulu.");
+                        //        Console.WriteLine("DEBUG:" + e);
+
                             }
 
                         } while (articleId != 0);
@@ -105,6 +104,7 @@ namespace ApiConsumer
                     }
                 case 2:
                     await SavingAndLoadingHistory(CurrentHistoryOfSearching);
+
                     break;
                 case 3:
                     if (OldHistoryOfSearching.Count != 0) { 
@@ -123,7 +123,7 @@ namespace ApiConsumer
             Console.WriteLine("\t[M] aby wrócić do menu. ");
             try {
                 answer = Console.ReadLine();
-                if (answer.ToLower() == "m") await DisplayMenu();
+                if (answer.ToLower() == "m" || answer=="") await DisplayMenu();
             } catch (FormatException) {
                 goto restart;
             }
@@ -180,28 +180,46 @@ namespace ApiConsumer
                 };
                 CurrentHistoryOfSearching.Add(HistoryLog);
             }
-            private static async Task SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
+        private static async Task SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
+            Console.WriteLine("Zapisywanie w toku...");
             // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta      
+            backToStart:
             if (OldHistoryOfSearching.Count == 0) {
-                    //////////File.WriteAllText("D:\\searchinghistory.txt", null);
-                    var jsonFromFile = await File.ReadAllTextAsync("D:\\searchinghistory.txt");
-                    if(jsonFromFile != null) {
-                        OldHistoryOfSearching = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile.ToString());
-                    } else {
-                        OldHistoryOfSearching.Add(currentHistory.First());
-                    }
+                
+                try {
+                    var jsonFromFile = await File.ReadAllTextAsync(Path.Combine(
+                        Environment.CurrentDirectory, "SearchingHistory.txt"));
+                    if (jsonFromFile != null)
+                        OldHistoryOfSearching = JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile.ToString());
+                } catch (FileNotFoundException) {
+                    Console.WriteLine("Uworzenie nowego pustego pliku histori.");
+                    string jsonString = Newtonsoft.Json.JsonConvert.SerializeObject(OldHistoryOfSearching);
+                    File.WriteAllText(Path.Combine(
+                        Environment.CurrentDirectory, "SearchingHistory.txt"),jsonString);
+                    // po utworzeniu pliku, wróć się i wykonaj na nim działanie
+                   goto backToStart;
                 }
+            }
 
-                // Aktualizowanie pliku na koniec działąnia programu pooprzez połączenie starej i nowej listy
+            // Sprawdzenie czy historia wyszukiwania zawiera jakiekolwiek obiekty -> nie możeby dodać do listy pustego obiektu
+            if (currentHistory.Any()) {
+                // Aktualizowanie pliku na koniec działąnia funkcji pooprzez połączenie starej i nowej listy
                 //   następnie jej zapisanie do pliku ? nie wiem dlaczego nie moge do nadpisać a sam sie kasuje
                 //   więc nieefektywna opcja, pobieranie całości i zapisywanie całości od nowa 
                 OldHistoryOfSearching.AddRange(currentHistory);
+                Console.WriteLine($"Dodano {currentHistory.Count()} wyswietlone strony.");
                 // Po przepisaniu wynikow aktualna liczba wyszukiwan zostaje wyczyszczona
                 //   w innym wypadku liczba elementow zapisywanych podczas dzialania aplikacji, by je namnażała
-                currentHistory = null;
                 string jsonString = Newtonsoft.Json.JsonConvert.SerializeObject(OldHistoryOfSearching);
-                File.WriteAllText("D:\\searchinghistory.txt", jsonString);
+                await File.WriteAllTextAsync(Path.Combine(
+                    Environment.CurrentDirectory,"SearchingHistory.txt"),jsonString);
+                Console.WriteLine("Zakończono zapisywanie.");
+                //czyszczenie podrecznej historii wyszukiwania    
+                CurrentHistoryOfSearching = null;
+            }else {
+                Console.WriteLine("Zakończono - Brak elementow do zapisania.");
             }
+        }
         #endregion
         
         #region Ranking stuff
