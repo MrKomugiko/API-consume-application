@@ -24,76 +24,115 @@ namespace ApiConsumer
         static List<SearchingHistory> CurrentHistoryOfSearching = new List<SearchingHistory>();
         static async Task Main(string[] args) {
             // Niekończąca się pętla
-            while (true) {
-                int page = 1;
-                // Pobranie od użytkownika wartości do wyszukania
-                string szukanaFraza;
-                do{
-                    Console.WriteLine(  "********************************\n"+
-                                        "........:: Wikipedia ::........\n"+
-                                        "********************************");
-                    Console.Write("Wyszukaj: ");
-                    szukanaFraza = Console.ReadLine();
-                }while(szukanaFraza == String.Empty);
-                // Utworzenie instancji klasy program  
-                Program program = new Program();
-                search:
-                // Asynchroniczne wywołanie - czekanie aż skończy się pobieranie danych 
-                await program.SearchInWikipedia(szukanaFraza, page-1);
-                restart:
-                Console.WriteLine("Przejsc na następna strone? [t/n] lub podaj numer strony.\n[ENTER] aby przejść dalej.\n");
-                var answer = Console.ReadLine();
-                // Sprawdzanie wartosci wprowadzonych rpzez uzytkownika, w razie błedu wraca do początku.
-                try {
-                    if (answer != "" && answer!="n") {
-                        if (answer.ToLower() == "t") {
-                            page++;
-                            goto search;
-                        }
-                        if ((Convert.ToInt32(answer) > 1001) && (Convert.ToInt32(answer) >= ( program.wynikiWyszukiwania.searchinfo.totalhits / 10))) {
-                            Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits / 10} ]");
-                            goto restart;
-                        }
-                        if (Convert.ToInt32(answer) >= 1) {
-                            page = Convert.ToInt32(answer);
-                            goto search;
-                        }
-                    }
-                } catch (FormatException) {
-                        Console.WriteLine($"Wprowadz poprawny numer strony [1 - {((program.wynikiWyszukiwania.searchinfo.totalhits/10)<1000?((program.wynikiWyszukiwania.searchinfo.totalhits / 10)):1000)} ]");
-                        goto restart;
-                    }
-                int articleId=1;
-                do {
-                    Console.Write("Wybierz artykuł podając jego id [1-10], [0 Aby zakończyć] \n");
-                        try {
-                            articleId = Convert.ToInt32(Console.ReadLine());
-                            await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
-                            // Utworzenie wpisu do loga 
-                                MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza, program.wynikiWyszukiwania.search[articleId - 1].title);
-                            break;
-
-                        } catch (Exception e) {
-                            Console.WriteLine("Wprowadz poprawny numer artykułu, aby zakończyć, wybierz [0].");
-                           // Console.WriteLine("DEBUG:" + e);
-                        }
-                  
-                } while (articleId !=0) ;
-                //utworzenie zrzutu wyszukiwanego obiektu i jego daty
-                Console.WriteLine("[ENTER] aby kontynuowac wikipedie.\n[Z-zapisz]\n[W-wyswietl]");
-                answer = Console.ReadLine().ToString();
-                if (answer == "z") {
-                    SavingAndLoadingHistory(CurrentHistoryOfSearching);
-                        };
-                if (answer == "w") {
-                    ShowRanking(GenerateRanking(OldHistoryOfSearching));
-                }
-            }
+                await DisplayMenu();
         }
 
+        #region StartMenu
+        static async Task DisplayMenu() {
+            Console.Clear();
+            Console.WriteLine(" ********************************\n" +
+                              " ........:: Wikipedia ::........\n " +
+                              " ********************************\n" +
+                              "\t[1] Wyszukiwarka.\n" +
+                              "\t[2] Zapisz dzisiejszą sesje wyszukiwania\n" +
+                              "\t[3] Wyswietl ranking popularnosci - ogolny/całkowity. \n" +
+                              "\t[4] ...\n" +
+                              "\t[5] Zamknij.\n");
+            
+            var answer = Console.ReadLine();
+            switch (Convert.ToInt32(answer)) {
+                case 1:
+                    while (true) {
+                        Console.Clear();
+                        int page = 1;
+                        // Pobranie od użytkownika wartości do wyszukania
+                        string szukanaFraza;
+                        do {
+                            Console.Write("Wyszukaj: ");
+                            szukanaFraza = Console.ReadLine();
+                        } while (szukanaFraza == String.Empty);
+                        // Utworzenie instancji klasy program  
+                        Program program = new Program();
+                        search:
+                        // Asynchroniczne wywołanie - czekanie aż skończy się pobieranie danych 
+                        await program.SearchInWikipedia(szukanaFraza, page - 1);
+                        Console.WriteLine("Przejsc na następna strone? [t/n] lub podaj numer strony.\n[ENTER] aby przejść dalej.\n");
+                        var answer2 = Console.ReadLine();
+                        Console.Clear();
+                        // Sprawdzanie wartosci wprowadzonych rpzez uzytkownika, w razie błedu wraca do początku.
+                        try {
+                            if (answer2 != "" && answer2 != "n") {
+                                if (answer2.ToLower() == "t") {
+                                    page++;
+                                    goto search;
+                                }
+                                if ((Convert.ToInt32(answer2) > 1001) && (Convert.ToInt32(answer2) >= (program.wynikiWyszukiwania.searchinfo.totalhits / 10))) {
+                                    Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits / 10} ]");
+                                    goto restart;
+                                }
+                                if (Convert.ToInt32(answer2) >= 1) {
+                                    page = Convert.ToInt32(answer2);
+                                    goto search;
+                                }
+                            }
+                        } catch (FormatException) {
+                            Console.WriteLine($"Wprowadz poprawny numer strony [1 - {((program.wynikiWyszukiwania.searchinfo.totalhits / 10) < 1000 ? ((program.wynikiWyszukiwania.searchinfo.totalhits / 10)) : 1000)} ]");
+                            goto restart;
+                        }
+                        int articleId = 1;
+                        do {
+                            Console.Write("Wybierz artykuł podając jego id [1-10], [0 Aby zakończyć] \n");
+                            try {
+                                articleId = Convert.ToInt32(Console.ReadLine());
+                                Console.Clear();
+                                await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
+                                // Utworzenie wpisu do loga 
+                                MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza, program.wynikiWyszukiwania.search[articleId - 1].title);
+                                break;
+
+                            } catch (Exception e) {
+                                Console.WriteLine("Wprowadz poprawny numer artykułu, aby zakończyć, wybierz [0].");
+                                // Console.WriteLine("DEBUG:" + e);
+                            }
+
+                        } while (articleId != 0);
+
+                        Console.WriteLine("\t[ENTER] aby kontynuowac wyszukiwanie.\n" +
+                                          "\t[M] aby wrócić do menu. ");
+
+                        answer = Console.ReadLine().ToLower();
+                        if (answer == "m") await DisplayMenu();
+                    }
+                case 2:
+                    await SavingAndLoadingHistory(CurrentHistoryOfSearching);
+                    break;
+                case 3:
+                    if (OldHistoryOfSearching.Count != 0) { 
+                        ShowRanking(GenerateRanking(OldHistoryOfSearching)); }
+                    else {
+                        await SavingAndLoadingHistory(CurrentHistoryOfSearching);
+                        ShowRanking(GenerateRanking(OldHistoryOfSearching));
+                    }
+
+                    break;
+                default:
+                    await DisplayMenu();
+                    break;
+            }
+            restart:
+            Console.WriteLine("\t[M] aby wrócić do menu. ");
+            try {
+                answer = Console.ReadLine();
+                if (answer.ToLower() == "m") await DisplayMenu();
+            } catch (FormatException) {
+                goto restart;
+            }
+        }
+        #endregion
+
         #region Wikipedia API
-            // Wyświetlenie wyników z Wikipedi.
-            private async Task SearchInWikipedia(string searchQuery, int page) {
+        // Wyświetlenie wyników z Wikipedi.
+        private async Task SearchInWikipedia(string searchQuery, int page) {
                 // Console.WriteLine("Rozpoczęcie wyszukiwania...");
                 string response = await client.GetStringAsync(
                     $"https://pl.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
@@ -141,14 +180,13 @@ namespace ApiConsumer
                 };
                 CurrentHistoryOfSearching.Add(HistoryLog);
             }
-            private static void SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
-                // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta      
-                if (OldHistoryOfSearching.Count == 0) {
-                    //////////// Tworzenie pustego pliku w razie gdyby go nie było xD
+            private static async Task SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
+            // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta      
+            if (OldHistoryOfSearching.Count == 0) {
                     //////////File.WriteAllText("D:\\searchinghistory.txt", null);
-                    var jsonFromFile = File.ReadAllText("D:\\searchinghistory.txt");
+                    var jsonFromFile = await File.ReadAllTextAsync("D:\\searchinghistory.txt");
                     if(jsonFromFile != null) {
-                        OldHistoryOfSearching = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile);
+                        OldHistoryOfSearching = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SearchingHistory>>(jsonFromFile.ToString());
                     } else {
                         OldHistoryOfSearching.Add(currentHistory.First());
                     }
@@ -205,10 +243,11 @@ namespace ApiConsumer
             return ranking;
             }
             private static void ShowRanking(List<Ranking> rankingData) {                                                                                                                                     
-                foreach (var element in rankingData)                                                                     
+                   foreach (var element in rankingData)                                                                     
                     {                                                                                                     
                     Console.WriteLine($"Pozycja[{element.Position}] | Tytul[{element.Title}] | Wyswietlenia[{element.Visited}]");                                                                                        
-                }                                                                                                      
+                }
+            Console.WriteLine();
             }
         #endregion
 
