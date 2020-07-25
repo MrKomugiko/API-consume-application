@@ -22,12 +22,13 @@ namespace ApiConsumer
         //lista wyszukiwanych elementow
         static List<SearchingHistory> OldHistoryOfSearching = new List<SearchingHistory>();
         static List<SearchingHistory> CurrentHistoryOfSearching = new List<SearchingHistory>();
+        static bool isSearchingListEmpty;
         static async Task Main(string[] args) {
             // Niekończąca się pętla
                 await DisplayMenu();
         }
 
-        #region StartMenu
+        #region StartMenu ----------------------------------------------------------------------------------------------------------------------------------------------------------
         static async Task DisplayMenu() {
             Console.Clear();
             Console.WriteLine(" ********************************\n" +
@@ -56,45 +57,46 @@ namespace ApiConsumer
                         search:
                         // Asynchroniczne wywołanie - czekanie aż skończy się pobieranie danych 
                         await program.SearchInWikipedia(szukanaFraza, page - 1);
-                        Console.WriteLine("Przejsc na następna strone? [t/n] lub podaj numer strony.\n[ENTER] aby przejść dalej.\n");
-                        var answer2 = Console.ReadLine();
-                        // Sprawdzanie wartosci wprowadzonych rpzez uzytkownika, w razie błedu wraca do początku.
-                        try {
-                            if (answer2 != "" && answer2 != "n") {
-                                if (answer2.ToLower() == "t") {
-                                    page++;
-                                    goto search;
-                                }
-                                if ((Convert.ToInt32(answer2) > 1001) && (Convert.ToInt32(answer2) >= (program.wynikiWyszukiwania.searchinfo.totalhits / 10))) {
-                                    Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits / 10} ]");
-                                    goto restart;
-                                }
-                                if (Convert.ToInt32(answer2) >= 1) {
-                                    page = Convert.ToInt32(answer2);
-                                    goto search;
-                                }
-                            }
-                        } catch (FormatException) {
-                            Console.WriteLine($"Wprowadz poprawny numer strony [1 - {((program.wynikiWyszukiwania.searchinfo.totalhits / 10) < 1000 ? ((program.wynikiWyszukiwania.searchinfo.totalhits / 10)) : 1000)} ]");
-                            goto restart;
-                        }
-                        int articleId = 1;
-                        do {
-                            Console.Write("Wybierz artykuł podając jego id [1-10], [0] Aby zakończyć \n");
+                        if (!isSearchingListEmpty) {
+                            back:
+                            Console.WriteLine("Przejsc na następna strone? [t/n] lub podaj numer strony.\n[ENTER] aby przejść dalej.\n");
+                            var answer2 = Console.ReadLine();
+                            // Sprawdzanie wartosci wprowadzonych rpzez uzytkownika, w razie błedu wraca do początku.
                             try {
-                                articleId = Convert.ToInt32(Console.ReadLine());       
-                                await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
-                                // Utworzenie wpisu do loga 
-                                MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza, program.wynikiWyszukiwania.search[articleId - 1].title);
-                                break;
-
+                                if (answer2 != "" && answer2 != "n") {
+                                    if (answer2.ToLower() == "t") {
+                                        page++;
+                                        goto search;
+                                    }
+                                    if ((Convert.ToInt32(answer2) > 1001) && (Convert.ToInt32(answer2) >= (program.wynikiWyszukiwania.searchinfo.totalhits / 10))) {
+                                        Console.WriteLine($"Wprowadz poprawny numer strony [1 - {program.wynikiWyszukiwania.searchinfo.totalhits / 10} ]");
+                                        goto back;
+                                    }
+                                    if (Convert.ToInt32(answer2) >= 1) {
+                                        page = Convert.ToInt32(answer2);
+                                        goto search;
+                                    }
+                                }
                             } catch (FormatException) {
-                                Console.WriteLine("Wprowadziles niepoprawny numer artykulu.");
-                        //        Console.WriteLine("DEBUG:" + e);
-
+                                Console.WriteLine($"Wprowadz poprawny numer strony [1 - {((program.wynikiWyszukiwania.searchinfo.totalhits / 10) < 1000 ? ((program.wynikiWyszukiwania.searchinfo.totalhits / 10)) : 1000)} ]");
+                                goto back;
                             }
-
-                        } while (articleId != 0);
+                            int articleId = 1;
+                            do {
+                                Console.Write("Wybierz artykuł podając jego id [1-10], [0] Aby zakończyć \n");
+                                try {
+                                    articleId = Convert.ToInt32(Console.ReadLine());
+                                    await program.GetWikipediaArticleById(program.wynikiWyszukiwania.search[articleId - 1].pageid);
+                                    // Utworzenie wpisu do loga 
+                                    MakeSearchingLog(program.wynikiWyszukiwania.search[articleId - 1].pageid, szukanaFraza, program.wynikiWyszukiwania.search[articleId - 1].title);
+                                    break;
+                                } catch (FormatException) {
+                                    Console.WriteLine("Wprowadziles niepoprawny numer artykulu.");
+                                }
+                            } while (articleId != 0);
+                        } else {
+                            Console.WriteLine("Brak wyników :(");
+                        }
 
                         Console.WriteLine("\t[ENTER] aby kontynuowac wyszukiwanie.\n" +
                                           "\t[M] aby wrócić do menu. ");
@@ -113,7 +115,6 @@ namespace ApiConsumer
                         await SavingAndLoadingHistory(CurrentHistoryOfSearching);
                         ShowRanking(GenerateRanking(OldHistoryOfSearching));
                     }
-
                     break;
                 default:
                     await DisplayMenu();
@@ -130,9 +131,9 @@ namespace ApiConsumer
         }
         #endregion
 
-        #region Wikipedia API
-        // Wyświetlenie wyników z Wikipedi.
-        private async Task SearchInWikipedia(string searchQuery, int page) {
+        #region Wikipedia API ------------------------------------------------------------------------------------------------------------------------------------------------------
+            // Wyświetlenie wyników z Wikipedi.
+            private async Task SearchInWikipedia(string searchQuery, int page) {
                 // Console.WriteLine("Rozpoczęcie wyszukiwania...");
                 string response = await client.GetStringAsync(
                     $"https://pl.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={searchQuery}&sroffset={page * 10}");
@@ -142,19 +143,27 @@ namespace ApiConsumer
                 Respond search = JsonConvert.DeserializeObject<Respond>(response);
                 // W przypadku wyszukiwania kolejnych stron, konieczne jest ustawienie przesunięcia wyników o 10 
                 Continue newPage = new Continue();
-                newPage.sroffset = (page)*10;
+                newPage.sroffset = (page) * 10;
                 search._continue = newPage;
                 // Przypisanie zwróconych danych do nowej listy ( dla celów estetycznych, łątwiejszego użycie pożniej w kodzie)
                 wynikiWyszukiwania = search.query;
-                // Wyświetlenie listy tytułów artykułów znalezionych w Wikipedii.
-                int index = 1;
-                foreach (Search item in wynikiWyszukiwania.search) {
-                    Console.WriteLine($"[{index++}] {item.title}");
+                //Przechwytywanie pustych wyników, i zwrócenie stosownej wiadomości    
+                if (wynikiWyszukiwania.search.Count() > 0) {
+
+                    // Wyświetlenie listy tytułów artykułów znalezionych w Wikipedii.
+                    int index = 1;
+                    foreach (Search item in wynikiWyszukiwania.search) {
+                        Console.WriteLine($"[{index++}] {item.title}");
+                    }
+                    Console.WriteLine($"Strona [{(search._continue.sroffset / 10) + 1} / {((search.query.searchinfo.totalhits / 10) < 1000 ? (search.query.searchinfo.totalhits / 10) : 1000)}]");
+                    // Console.WriteLine("Wyszukiwanie zakończone");
+                    isSearchingListEmpty = false;
+
+                } else {
+                    isSearchingListEmpty = true;
                 }
-                Console.WriteLine($"Strona [{(search._continue.sroffset / 10)+1} / {((search.query.searchinfo.totalhits / 10)<1000? (search.query.searchinfo.totalhits / 10):1000)}]");
-                // Console.WriteLine("Wyszukiwanie zakończone");
             }
-            // Wyświetlenie Pierwszych lini tekstu w artykule
+                // Wyświetlenie Pierwszych lini tekstu w artykule
             private async Task GetWikipediaArticleById(int pageId, int length = 500) {
                 // Console.WriteLine("Pobieranie artykułu...");
                 // Pobranie odpowiedzi z API Wikipedii jako parametry przekazujemy wczesniej ustalony ID strony 
@@ -170,17 +179,17 @@ namespace ApiConsumer
             }
         #endregion
 
-        #region Saving and loaging stuff
+        #region Saving and loaging stuff -------------------------------------------------------------------------------------------------------------------------------------------
             private static void MakeSearchingLog(int pageId, string searchingQuery, string pageTitle) {
-                SearchingHistory HistoryLog = new SearchingHistory {
-                    DataWyszukiwania = DateTime.Now,
-                    TytulWyszukanejStrony = pageTitle,
-                    OdwiedzonaStrona = pageId,
-                    WyszukiwanaFraza = searchingQuery
-                };
-                CurrentHistoryOfSearching.Add(HistoryLog);
-            }
-        private static async Task SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
+                    SearchingHistory HistoryLog = new SearchingHistory {
+                        DataWyszukiwania = DateTime.Now,
+                        TytulWyszukanejStrony = pageTitle,
+                        OdwiedzonaStrona = pageId,
+                        WyszukiwanaFraza = searchingQuery
+                    };
+                    CurrentHistoryOfSearching.Add(HistoryLog);
+                }
+            private static async Task SavingAndLoadingHistory(List<SearchingHistory> currentHistory) {
             Console.WriteLine("Zapisywanie w toku...");
             // Zaimportowanie aktualnie przechowywanej listy z pliku w przypadku gdy ta jest pusta      
             backToStart:
@@ -221,8 +230,8 @@ namespace ApiConsumer
             }
         }
         #endregion
-        
-        #region Ranking stuff
+
+        #region Ranking stuff ------------------------------------------------------------------------------------------------------------------------------------------------------
             private static List<Ranking> GenerateRanking(List<SearchingHistory> currentHistory) {
 
                 List<Ranking> ranking = new List<Ranking>();
@@ -269,7 +278,7 @@ namespace ApiConsumer
             }
         #endregion
 
-        #region NOTATNIK / TODOs / UWAGI I POMYSŁY
+        #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
         /*
          * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
          * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
@@ -293,7 +302,7 @@ namespace ApiConsumer
          *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
          *              który będzie sobie przypisywac w czasie tworzenia
          * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
-         *        TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
+         * [FONE] TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
          */
         #endregion
     }
