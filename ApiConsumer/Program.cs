@@ -167,7 +167,7 @@ namespace ApiConsumer
                              "\t[5] Wróć na stronę główną. \n" +
                              "\t[6] Przejdz do wyszukiwarki. \n"+
                              "\t[7] Zamknij program. \n");
-
+            
             var answer = Console.ReadLine();
             switch (Convert.ToInt32(answer)) {
                 case 1:
@@ -178,15 +178,60 @@ namespace ApiConsumer
                     Console.WriteLine($"W wybranym artykule (fragmencie) występuje {GetNumberWordsFromArticle(RecentArticle.Article)} słów.");
                     break;
                 case 3:
-                    // TODO: zrobic liste kilku/nastu słów
-                    // dać możliwośc wyswietlenia topki słow pod względem długości słowa, , zeby pominąć i, lub, że itp.
-                    Console.WriteLine($"Top 20# Najczęściej występujące słowo w artykule (fragmencie) to:");
-                    int counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Value)) {
-                        Console.WriteLine($"[{counter++}]#  Słowo:\"{wordWithCounter.Key}\"[{wordWithCounter.Value}]x");  // Print the Repeated word and its count  
-                        if(counter > 20) break;
-                    }  
-            
+                    Console.WriteLine($"\tTop 5# Najczęściej występujące słowo w artykule (fragmencie) to:");
+                    PrintWordPopularityRanking("liczbaPozycji",5);
+                    back:
+                    
+                    Console.WriteLine("\tChcesz zmienic parametry wyswietlania ? t/n");
+                    answer = Console.ReadLine().ToString().ToLower();
+                    if(answer == "t") {
+                        backToMenu:
+                        Console.WriteLine(  "\t[1] Podaj minimalną długośc wyrazu.\n" +
+                                            "\t[2] Podaj maksymalną długośc wyrazu.\n" +
+                                            "\t[3] Zmien liczbe wyświetlanych pozycji. (standardowo 5)\n" +
+                                            "\t[-] Opcje zmiany sortowania:\n" +
+                                            "\t\t[41] Czestotliwośc występowania malejąco,\n" +
+                                            "\t\t[42] Częstotliwośc występowania rosnąco,\n" +
+                                            "\t\t[43] Sortowanie według wyrazów alfabetycznie rosnąco a-z,\n" +
+                                            "\t\t[44] Sortowanie malejąco z-a\n" +
+                                            "\t[5] Powrót");
+                        answer = Console.ReadLine();
+                        switch (answer) {
+                            case "1":
+                                Console.WriteLine("Podaj minimalną długość wyrazu w zestawieniu popularności wystąpień w artykule");
+                                PrintWordPopularityRanking("minDlugosc", Convert.ToInt32(Console.ReadLine()));
+                                break;
+                            case "2":
+                                Console.WriteLine("Podaj maksymalną długość wyrazu w zestawieniu popularności wystąpień w artykule");
+                                PrintWordPopularityRanking("maxDlugosc", Convert.ToInt32(Console.ReadLine()));
+                                break;
+
+                            case "3":
+                                Console.WriteLine("Podaj liczbę wyrazów do wyświetlenia w rankingu: ");
+                                PrintWordPopularityRanking("liczbaPozycji", Convert.ToInt32(Console.ReadLine()));
+                                break;
+
+                            case "41":
+                                PrintWordPopularityRanking("czestotliwoscMalejaca");
+                                break;
+                            case "42":
+                                PrintWordPopularityRanking("czestotliwoscRosnaca");
+                                break;
+                            case "43":
+                                PrintWordPopularityRanking("alfabetycznieRosnaco");
+                                break;
+                            case "44":
+                                PrintWordPopularityRanking("alfabetycznieMalejaco");
+                                break;
+                            case "5":
+                                await DisplayStatisticMenu();
+                                break;
+
+                            default:
+                                goto backToMenu;
+                        }
+                        goto back;
+                    }
                     break;
                 case 4:
                     if (RecentArticle != null) {
@@ -415,7 +460,7 @@ namespace ApiConsumer
             return wordCount;
         }
 
-        private static Dictionary<string,int> GetPopularityOfWordEncounteredInArticle(string article) {
+        private static Dictionary<string, int> GetPopularityOfWordEncounteredInArticle(string article, int min_dlugosc_wyrazu = 1, int max_dlugosc_wyrazu = 100) {
             // krok 1 podzielenie artykulu na osobne słowa
             List<string> artykolListaSlow = new List<string>();
             List<string> artykolListaSlowBezZnakowSpecialnych = new List<string>();
@@ -423,14 +468,17 @@ namespace ApiConsumer
 
             // ktok 2 usunięcie wszystkich przecinkó, kropek, znakow zapytania etc.
             //      dzięki zastosowaniu wyrażenia regularnego dopuszcza tylko litery od a do Z i od 0 do 9
-            Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+            Regex rgx = new Regex("[^a-zA-Z0-9]");
             foreach (string word in artykolListaSlow) {
                 if(rgx.Replace(word, string.Empty) != string.Empty) {
-                    artykolListaSlowBezZnakowSpecialnych.Add(rgx.Replace(word.ToLower(), string.Empty));
+                    string slowo = rgx.Replace(word.ToLower(), string.Empty);
+                    if(slowo.Length >= min_dlugosc_wyrazu && slowo.Length <= max_dlugosc_wyrazu) {
+                    artykolListaSlowBezZnakowSpecialnych.Add(slowo.Trim());
+                    }
                 }
             }
             // krok 3 pogrupowanie po nazwach i zsumowanie wystąpień
-            List<string> sortedList = artykolListaSlowBezZnakowSpecialnych.OrderByDescending(p=>p).ToList();
+            List<string> sortedList = artykolListaSlowBezZnakowSpecialnych.ToList();
             Dictionary<string, int> RepeatedWordCount = new Dictionary<string, int>();
             for (int i = 0; i < sortedList.Count; i++) {
 
@@ -445,39 +493,110 @@ namespace ApiConsumer
             }         
             return RepeatedWordCount;
         }
-        #endregion
-        #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
-        /*
-         * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
-         * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
-         *              rozwiązanie => dodanie "explaintext=1" do url wikipedi
-         * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
-         * [DONE] TODO: Poprawienie jakości wyszukiwania => wyświetlane były już przesunięte pozycje 
-         *              (bez tych najbardziej pasujących, tylko od następnych 10ciu)
-         * [DONE] TODO: Zapisywanie historii przeglądania
-         *        TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
-         * [----] TODO: Wyświetlanie losowego artykułu
-         *
-         *
-         *
-         * [DONE] TODO: Zapisywanie historii 
-         * [DONE] TODO: Tworzenie rankingu
-         * [DONE] TODO: Automatyczna aktualizacja pliku z historią wyszukiwania
-         *        TODO: Plik historii eksportowany jest do pliku podczas kończenia programu
-         * [DONE] TODO: wyświetlanie rankingu
-         * [DONE] TODO: Wyświetlanie posortowanego rankingu
-         * [DONE] TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
-         *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
-         *              który będzie sobie przypisywac w czasie tworzenia
-         * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
-         * [DONE] TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
-         * 
-         * 
-         * 
-         * --------------------------------------------------------------------------------------------------------
-         * TODO: 
-         * TODO:
-         */
-        #endregion
-    }
+
+        private static void PrintWordPopularityRanking(string sortingType, int liczba_pozycji = 5, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100) {
+            int counter;
+            switch (sortingType) {
+                case "liczbaPozycji":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji)
+                            break;
+                    }
+                    break;
+                case "minDlugosc":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji)
+                            break;
+                    }
+                    break;
+
+                case "maxDlugosc":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, max_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji)
+                            break;
+                    }
+                    break;
+
+                case "czestotliwoscMalejaca":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) break;
+                    }
+                    break;
+
+                case "czestotliwoscRosnaca":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderBy(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) break;
+                    }
+                    break;
+
+                case "alfabetycznieRosnaco":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Key)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) break;
+                    }
+                    break;
+
+                case "alfabetycznieMalejaco":
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, liczba_pozycji).OrderBy(p => p.Key)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) break;
+                    }
+                    break;
+
+                default:
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, liczba_pozycji).OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) break;
+                    }
+                    break;
+            }
+        }
+    #endregion
+    #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
+    /*
+     * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
+     * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
+     *              rozwiązanie => dodanie "explaintext=1" do url wikipedi
+     * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
+     * [DONE] TODO: Poprawienie jakości wyszukiwania => wyświetlane były już przesunięte pozycje 
+     *              (bez tych najbardziej pasujących, tylko od następnych 10ciu)
+     * [DONE] TODO: Zapisywanie historii przeglądania
+     *        TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
+     * [----] TODO: Wyświetlanie losowego artykułu
+     *
+     *
+     *
+     * [DONE] TODO: Zapisywanie historii 
+     * [DONE] TODO: Tworzenie rankingu
+     * [DONE] TODO: Automatyczna aktualizacja pliku z historią wyszukiwania
+     *        TODO: Plik historii eksportowany jest do pliku podczas kończenia programu
+     * [DONE] TODO: wyświetlanie rankingu
+     * [DONE] TODO: Wyświetlanie posortowanego rankingu
+     * [DONE] TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
+     *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
+     *              który będzie sobie przypisywac w czasie tworzenia
+     * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
+     * [DONE] TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
+     * 
+     * 
+     * 
+     * --------------------------------------------------------------------------------------------------------
+     * TODO: 
+     * TODO:
+     */
+    #endregion
+}
 }
