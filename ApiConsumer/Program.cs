@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace ApiConsumer
 {
@@ -161,7 +162,7 @@ namespace ApiConsumer
                              "******************************************************* \n" +
                              "\t[1] Oblicz liczbe znakow. \n" +
                              "\t[2] Oblicz liczbe słów. \n" +
-                             "\t[3] [W.I.P] Wskaż najpopularniejsze słowo. \n" +
+                             "\t[3] Wskaż najpopularniejsze słowo. \n" +
                              "\t[4] [W.I.P] Oblicz procentowy udział znaków w artykule. \n" +
                              "\t[5] Wróć na stronę główną. \n" +
                              "\t[6] Przejdz do wyszukiwarki. \n"+
@@ -177,12 +178,15 @@ namespace ApiConsumer
                     Console.WriteLine($"W wybranym artykule (fragmencie) występuje {GetNumberWordsFromArticle(RecentArticle.Article)} słów.");
                     break;
                 case 3:
-                    if (OldHistoryOfSearching.Count != 0) {
-                        ShowRanking(GenerateRanking(OldHistoryOfSearching));
-                    } else {
-                        await SavingAndLoadingHistory(CurrentHistoryOfSearching);
-                        ShowRanking(GenerateRanking(OldHistoryOfSearching));
-                    }
+                    // TODO: zrobic liste kilku/nastu słów
+                    // dać możliwośc wyswietlenia topki słow pod względem długości słowa, , zeby pominąć i, lub, że itp.
+                    Console.WriteLine($"Top 20# Najczęściej występujące słowo w artykule (fragmencie) to:");
+                    int counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"[{counter++}]#  Słowo:\"{wordWithCounter.Key}\"[{wordWithCounter.Value}]x");  // Print the Repeated word and its count  
+                        if(counter > 20) break;
+                    }  
+            
                     break;
                 case 4:
                     if (RecentArticle != null) {
@@ -410,12 +414,36 @@ namespace ApiConsumer
             }
             return wordCount;
         }
-        
 
+        private static Dictionary<string,int> GetPopularityOfWordEncounteredInArticle(string article) {
+            // krok 1 podzielenie artykulu na osobne słowa
+            List<string> artykolListaSlow = new List<string>();
+            List<string> artykolListaSlowBezZnakowSpecialnych = new List<string>();
+            artykolListaSlow = article.Split(" ").ToList();
 
-            private static int CountWordEncounterInArticle(string word, string article) {
+            // ktok 2 usunięcie wszystkich przecinkó, kropek, znakow zapytania etc.
+            //      dzięki zastosowaniu wyrażenia regularnego dopuszcza tylko litery od a do Z i od 0 do 9
+            Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+            foreach (string word in artykolListaSlow) {
+                if(rgx.Replace(word, string.Empty) != string.Empty) {
+                    artykolListaSlowBezZnakowSpecialnych.Add(rgx.Replace(word.ToLower(), string.Empty));
+                }
+            }
+            // krok 3 pogrupowanie po nazwach i zsumowanie wystąpień
+            List<string> sortedList = artykolListaSlowBezZnakowSpecialnych.OrderByDescending(p=>p).ToList();
+            Dictionary<string, int> RepeatedWordCount = new Dictionary<string, int>();
+            for (int i = 0; i < sortedList.Count; i++) {
 
-            return 0;
+                // Check if word already exist in dictionary update the count  
+                if (RepeatedWordCount.ContainsKey(sortedList[i])) {
+                    int value = RepeatedWordCount[sortedList[i]];
+                    RepeatedWordCount[sortedList[i]] = value + 1;
+                } else {
+                    // if a string is repeated and not added in dictionary , here we are adding   
+                    RepeatedWordCount.Add(sortedList[i], 1); 
+                }
+            }         
+            return RepeatedWordCount;
         }
         #endregion
         #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
