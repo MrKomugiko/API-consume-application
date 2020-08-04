@@ -199,16 +199,19 @@ namespace ApiConsumer
                         switch (answer) {
                             case "1":
                                 Console.WriteLine("Podaj minimalną długość wyrazu w zestawieniu popularności wystąpień w artykule");
-                                PrintWordPopularityRanking("minDlugosc", Convert.ToInt32(Console.ReadLine()));
+                                answer = Console.ReadLine();
+                                PrintWordPopularityRanking("minDlugosc",5, Convert.ToInt32(answer));
                                 break;
                             case "2":
                                 Console.WriteLine("Podaj maksymalną długość wyrazu w zestawieniu popularności wystąpień w artykule");
-                                PrintWordPopularityRanking("maxDlugosc", Convert.ToInt32(Console.ReadLine()));
+                                answer = Console.ReadLine();
+                                PrintWordPopularityRanking("maxDlugosc",5, Convert.ToInt32(answer));
                                 break;
 
                             case "3":
                                 Console.WriteLine("Podaj liczbę wyrazów do wyświetlenia w rankingu: ");
-                                PrintWordPopularityRanking("liczbaPozycji", Convert.ToInt32(Console.ReadLine()));
+                                answer = Console.ReadLine();
+                                PrintWordPopularityRanking("liczbaPozycji", Convert.ToInt32(answer));
                                 break;
 
                             case "41":
@@ -460,7 +463,7 @@ namespace ApiConsumer
             return wordCount;
         }
 
-        private static Dictionary<string, int> GetPopularityOfWordEncounteredInArticle(string article, int min_dlugosc_wyrazu = 1, int max_dlugosc_wyrazu = 100) {
+        private static Dictionary<string, int> GetPopularityOfWordEncounteredInArticle(string article, int min_dlugosc_wyrazu=0, int max_dlugosc_wyrazu=100) {
             // krok 1 podzielenie artykulu na osobne słowa
             List<string> artykolListaSlow = new List<string>();
             List<string> artykolListaSlowBezZnakowSpecialnych = new List<string>();
@@ -507,7 +510,7 @@ namespace ApiConsumer
                     break;
                 case "minDlugosc":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
                         Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji)
                             break;
@@ -516,7 +519,7 @@ namespace ApiConsumer
 
                 case "maxDlugosc":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, max_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
                         Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji)
                             break;
