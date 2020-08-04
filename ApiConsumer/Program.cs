@@ -181,7 +181,7 @@ namespace ApiConsumer
                     break;
                 case 3:
                     Console.WriteLine($"\tTop 5# Najczęściej występujące słowo w artykule (fragmencie) to:");
-                    PrintWordPopularityRanking("liczbaPozycji",5);
+                    PrintWordPopularityRanking((int)printingType.liczba_Pozycji,5);
                     back:
                     
                     Console.WriteLine("\tChcesz zmienic parametry wyswietlania ? t/n");
@@ -203,50 +203,43 @@ namespace ApiConsumer
                             case "1":
                                 Console.WriteLine("Podaj minimalną długość wyrazu w zestawieniu popularności wystąpień w artykule");
                                 answer = Console.ReadLine();
-                                PrintWordPopularityRanking("minDlugosc",5, Convert.ToInt32(answer));
+                                PrintWordPopularityRanking((int)printingType.min_Dlugosc, 5, Convert.ToInt32(answer));
                                 break;
                             case "2":
                                 Console.WriteLine("Podaj maksymalną długość wyrazu w zestawieniu popularności wystąpień w artykule");
                                 answer = Console.ReadLine();
-                                PrintWordPopularityRanking("maxDlugosc",5, Convert.ToInt32(answer));
+                                PrintWordPopularityRanking((int)printingType.max_Dlugosc, 5, Convert.ToInt32(answer));
                                 break;
 
                             case "3":
                                 Console.WriteLine("Podaj liczbę wyrazów do wyświetlenia w rankingu: ");
                                 answer = Console.ReadLine();
-                                PrintWordPopularityRanking("liczbaPozycji", Convert.ToInt32(answer));
+                                PrintWordPopularityRanking((int)printingType.liczba_Pozycji, Convert.ToInt32(answer));
                                 break;
 
-                            case "41":
-                                PrintWordPopularityRanking("czestotliwoscMalejaca");
-                                break;
-                            case "42":
-                                PrintWordPopularityRanking("czestotliwoscRosnaca");
-                                break;
-                            case "43":
-                                PrintWordPopularityRanking("alfabetycznieRosnaco");
-                                break;
-                            case "44":
-                                PrintWordPopularityRanking("alfabetycznieMalejaco");
-                                break;
-                            case "5":
-                                await DisplayStatisticMenu();
-                                break;
+                            case "41":  PrintWordPopularityRanking((int)printingType.czestotliwosc_Malejaca); break;
 
-                            default:
-                                goto backToMenu;
+                            case "42":  PrintWordPopularityRanking((int)printingType.czestotliwosc_Rosnaca); break;
+
+                            case "43":  PrintWordPopularityRanking((int)printingType.alfabetycznie_Rosnaco); break;
+
+                            case "44":  PrintWordPopularityRanking((int)printingType.alfabetycznie_Malejaco); break;
+
+                            case "5":   await DisplayStatisticMenu(); break;
+
+                            default:    goto backToMenu;
                         }
                         goto back;
                     }
                     break;
                 case 4:
-                    PrintWordPopularityRanking("rankingLiter");
+                    PrintWordPopularityRanking((int)printingType.ranking_Liter);
 
                     break;
                 case 5:
-                    Console.WriteLine("Podaj słowo (lub jego część) lub znak, dlz któego szukasz informacji. ");
+                    Console.WriteLine("Podaj słowo (lub jego część), znak, dla któego szukasz informacji. ");
                     answer = Console.ReadLine();
-                    PrintWordPopularityRanking("wlasneSlowoLubZnak", query: answer);
+                    PrintWordPopularityRanking((int)printingType.wlasne_Slowo_Lub_Znak, query: answer);
                     break;
                 case 6:
                     Environment.Exit(0);
@@ -265,8 +258,6 @@ namespace ApiConsumer
             }
 
         }
-
-
             #endregion
        
         #region Wikipedia API ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -511,10 +502,24 @@ namespace ApiConsumer
             }
             return RepeatedCharacterCount;
         }
-        private static void PrintWordPopularityRanking(string sortingType, int liczba_pozycji = 5, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100, string query = null) {
+        private enum printingType
+        {
+            liczba_Pozycji,
+            min_Dlugosc,
+            max_Dlugosc,
+            czestotliwosc_Malejaca,
+            czestotliwosc_Rosnaca,
+            alfabetycznie_Malejaco,
+            alfabetycznie_Rosnaco,
+            ranking_Liter,
+            wlasne_Slowo_Lub_Znak
+        }
+        private static void PrintWordPopularityRanking(int printingType, int liczba_pozycji = 5, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100, string query = null) {
             int counter;
-            switch (sortingType) {
-                case "liczbaPozycji":
+            switch (printingType) {
+
+                #region Wyświetlanie "Liczba_Pozycji" -> przekazanie wartości int odpowiedzialnej za liczbę elementów do wyświetlenia ze słownika popularnych słów
+                case 1:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
                                                                             .OrderByDescending(p => p.Value)) {
@@ -523,7 +528,10 @@ namespace ApiConsumer
                             break;
                     }
                     break;
-                case "minDlugosc":
+                #endregion
+
+                #region Wyświetlanie "Min_Dlugosc" -> przekazanie do metody wartości określającej minimalną długość znaku do wyświetlenia w rankingu   
+                case 2:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu)
                                                                             .OrderByDescending(p => p.Value)) {
@@ -532,8 +540,10 @@ namespace ApiConsumer
                             break;
                     }
                     break;
+                #endregion
 
-                case "maxDlugosc":
+                #region Wyświetlanie "Max_Dlugosc" -> przekazanie wartości określającej maksymalną długośc słowa do wyświetlenia w rankingu
+                case 3:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu)
                                                                             .OrderByDescending(p => p.Value)) {
@@ -542,8 +552,10 @@ namespace ApiConsumer
                             break;
                     }
                     break;
+                #endregion
 
-                case "czestotliwoscMalejaca":
+                #region Wyświetlanie "Czestotliwosc_Malejaca" -> Wyswietlenie standardowych 5 elementow posortowanych malejąco (od najpopularniejszego)
+                case 4:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
                                                                             .OrderByDescending(p => p.Value)) {
@@ -551,8 +563,11 @@ namespace ApiConsumer
                         if (counter > liczba_pozycji) break;
                     }
                     break;
+                #endregion
 
-                case "czestotliwoscRosnaca":
+                #region Wyświetlanie "Czestotliwosc_Rosnaca" -> Wyswietlenie standardowych 5 elementow posortowanych rosnąco (od najmniej popularnych)
+
+                case 5:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
                                                                             .OrderBy(p => p.Value)) {
@@ -560,17 +575,10 @@ namespace ApiConsumer
                         if (counter > liczba_pozycji) break;
                     }
                     break;
+                #endregion
 
-                case "alfabetycznieRosnaco":
-                    counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
-                                                                            .OrderByDescending(p => p.Key)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
-                        if (counter > liczba_pozycji) break;
-                    }
-                    break;
-
-                case "alfabetycznieMalejaco":
+                #region Wyświetlanie "Alfabetycznie_Malejaco" -> Wyświetlenie standardowych 5 elementów posortowanych alfabetycznie malejąco (od Z-A)
+                case 6:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, liczba_pozycji)
                                                                             .OrderBy(p => p.Key)) {
@@ -578,7 +586,22 @@ namespace ApiConsumer
                         if (counter > liczba_pozycji) break;
                     }
                     break;
-                case "rankingLiter":
+                #endregion
+
+                #region Wyświetlanie "Alfabetycznie_Rosnaco" -> Wyświetlenie standardowych 5 elementów posortowanych alfabetycznie rosnąco (od A-Z)
+                case 7:
+                    counter = 1;
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderByDescending(p => p.Key)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) break;
+                    }
+                    break;
+                #endregion
+
+                #region Wyświetlanie "Ranking_Liter" -> Wyswietlenie liczby wystąpień liter alfabetu bez uwzględnienia znaków specialnych, oraz wyswietlenie ich procentowej zawartosci w tekscie
+
+                case 8:
                     counter = 1;
                     int charactersInArticle = GetNumberOfCharactersFromArticleOnLyLetters(RecentArticle.Article);
                     foreach (KeyValuePair<char, int> characterCounter in GetPopularityOfCharactersEncounteredInArticle(RecentArticle.Article)
@@ -596,7 +619,7 @@ namespace ApiConsumer
                             float udzialProcentowy = (characterCounter.Value * 100.0f) / charactersInArticle;
                             if (counter < 2) {
                                 counter++;
-                                Console.Write($"| [\"{characterCounter.Key,2} \"] => [{characterCounter.Value,2}x({Math.Round(udzialProcentowy,2),4}%)] | ");
+                                Console.Write($"| [\"{characterCounter.Key,2} \"] => [{characterCounter.Value,2}x({Math.Round(udzialProcentowy, 2),4}%)] | ");
                             } else {
                                 counter = 1;
                                 Console.Write($"[\"{characterCounter.Key,2} \"] => [{characterCounter.Value,2}x({Math.Round(udzialProcentowy, 2),4}%)] |\n");
@@ -604,13 +627,19 @@ namespace ApiConsumer
                         }
                     }
                     break;
-                case "wlasneSlowoLubZnak":
+                #endregion
+
+                #region Wyświetlanie "wlasne_Slowo_Lub_Znak" -> przekazanie wprowadzonej wartości string (mogącą być słowem, częścią słowa, lub znakiem) następnie wyświetlenie wszystkich pasujących wystąpień / dla znaku jest to tylko 1 element
+                case 9:
                     // krok 1 sprawdzic czy uzytkownik wpisal slowo czy znak
-                    foreach (KeyValuePair<string, int> specifiedWord in GetPopularityByPassingWordOrCharacter(article:RecentArticle.Article, word:query)
+                    foreach (KeyValuePair<string, int> specifiedWord in GetPopularityByPassingWordOrCharacter(article: RecentArticle.Article, word: query)
                                                                             .OrderByDescending(p => p.Key)) {
                         Console.WriteLine($"\t[\"{specifiedWord.Key,10} \"] [{specifiedWord.Value,2} x]");  // Print the Repeated word and its count  
                     }
                     break;
+                #endregion
+
+                #region Wyświetlanie "" -> standardowe wyswietlenie 5 najpopularniejszych słow z artkulu bez okreslonego sortowania ani ograniczen
                 default:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
@@ -619,6 +648,8 @@ namespace ApiConsumer
                         if (counter > liczba_pozycji) break;
                     }
                     break;
+                    #endregion
+
             }
         }
         private static Dictionary<string, int> GetPopularityByPassingWordOrCharacter(string word, string article) {
@@ -641,7 +672,9 @@ namespace ApiConsumer
 
             }
         }
+       
         #endregion
+        
         #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
         /*
          * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
