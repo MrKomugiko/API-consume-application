@@ -17,7 +17,7 @@ namespace ApiConsumer
     class Program
     {
         // Utworzenie klienta Http, który umożliwi komunikacje z zewnętrznycm API
-        HttpClient client = new HttpClient();
+        readonly HttpClient client = new HttpClient();
         // Globalne wyniki wyszukiwania bo są wykorzystywane w całym projekcie
         Query wynikiWyszukiwania;
         //lista wyszukiwanych elementow
@@ -163,7 +163,7 @@ namespace ApiConsumer
                              "\t[1] Oblicz liczbe znakow. \n" +
                              "\t[2] Oblicz liczbe słów. \n" +
                              "\t[3] Wskaż najpopularniejsze słowo. \n" +
-                             "\t[4] [W.I.P] Oblicz procentowy udział znaków w artykule. \n" +
+                             "\t[4] Oblicz procentowy udział znaków w artykule. \n" +
                              "\t[5] Wróć na stronę główną. \n" +
                              "\t[6] Przejdz do wyszukiwarki. \n"+
                              "\t[7] Zamknij program. \n");
@@ -237,12 +237,8 @@ namespace ApiConsumer
                     }
                     break;
                 case 4:
-                    if (RecentArticle != null) {
-                        await DisplayStatisticMenu();
+                    PrintWordPopularityRanking("rankingLiter");
 
-                    } else {
-                        Console.WriteLine("Odwiedź najpierw artykuł.");
-                    }
                     break;
                 case 5:
                     await DisplayMenu();
@@ -283,8 +279,9 @@ namespace ApiConsumer
                 //      klasa "Respond" posiada odwołanie do klasy "Query" w któej znajduje sie lista "Search" z pobranymi danymi.
                 Respond search = JsonConvert.DeserializeObject<Respond>(response);
                 // W przypadku wyszukiwania kolejnych stron, konieczne jest ustawienie przesunięcia wyników o 10 
-                Continue newPage = new Continue();
-                newPage.sroffset = (page) * 10;
+                Continue newPage = new Continue {
+                    sroffset = (page) * 10
+                };
                 search._continue = newPage;
                 // Przypisanie zwróconych danych do nowej listy ( dla celów estetycznych, łątwiejszego użycie pożniej w kodzie)
                 wynikiWyszukiwania = search.query;
@@ -325,10 +322,6 @@ namespace ApiConsumer
 
         private void SaveArticleForStatisticsPurpose(string title, string article) {
             RecentArticle = new RecentReadedArticle(title, article);
-        }
-        // różne metody pobrania -> podzielone na słowa, na znaki? 
-        private RecentReadedArticle GetRecentArticleText() {
-            return RecentArticle;
         }
 
         #endregion
@@ -462,56 +455,81 @@ namespace ApiConsumer
             }
             return wordCount;
         }
-
-        private static Dictionary<string, int> GetPopularityOfWordEncounteredInArticle(string article, int min_dlugosc_wyrazu=0, int max_dlugosc_wyrazu=100) {
+        private static List<string> CropTextIntoListWithoutSpecialCharacters(string article, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100) {
             // krok 1 podzielenie artykulu na osobne słowa
-            List<string> artykolListaSlow = new List<string>();
+            List<string> artykolListaSlow;
             List<string> artykolListaSlowBezZnakowSpecialnych = new List<string>();
             artykolListaSlow = article.Split(" ").ToList();
 
-            // ktok 2 usunięcie wszystkich przecinkó, kropek, znakow zapytania etc.
+            // krok 2 usunięcie wszystkich przecinkó, kropek, znakow zapytania etc.
             //      dzięki zastosowaniu wyrażenia regularnego dopuszcza tylko litery od a do Z i od 0 do 9
             Regex rgx = new Regex("[^a-zA-Z0-9]");
             foreach (string word in artykolListaSlow) {
-                if(rgx.Replace(word, string.Empty) != string.Empty) {
+                if (rgx.Replace(word, string.Empty) != string.Empty) {
                     string slowo = rgx.Replace(word.ToLower(), string.Empty);
-                    if(slowo.Length >= min_dlugosc_wyrazu && slowo.Length <= max_dlugosc_wyrazu) {
-                    artykolListaSlowBezZnakowSpecialnych.Add(slowo.Trim());
+                    if (slowo.Length >= min_dlugosc_wyrazu && slowo.Length <= max_dlugosc_wyrazu) {
+                        artykolListaSlowBezZnakowSpecialnych.Add(slowo.Trim());
                     }
                 }
             }
+            return artykolListaSlow;
+        }
+        private static Dictionary<string, int> GetPopularityOfWordEncounteredInArticle(string article, int min_dlugosc_wyrazu=0, int max_dlugosc_wyrazu=100) {
+            List<string> listaSlow = 
+                CropTextIntoListWithoutSpecialCharacters(article, min_dlugosc_wyrazu, max_dlugosc_wyrazu);
+
             // krok 3 pogrupowanie po nazwach i zsumowanie wystąpień
-            List<string> sortedList = artykolListaSlowBezZnakowSpecialnych.ToList();
             Dictionary<string, int> RepeatedWordCount = new Dictionary<string, int>();
-            for (int i = 0; i < sortedList.Count; i++) {
+            for (int i = 0; i < listaSlow.Count; i++) {
 
                 // Check if word already exist in dictionary update the count  
-                if (RepeatedWordCount.ContainsKey(sortedList[i])) {
-                    int value = RepeatedWordCount[sortedList[i]];
-                    RepeatedWordCount[sortedList[i]] = value + 1;
+                if (RepeatedWordCount.ContainsKey(listaSlow[i])) {
+                    int value = RepeatedWordCount[listaSlow[i]];
+                    RepeatedWordCount[listaSlow[i]] = value + 1;
                 } else {
                     // if a string is repeated and not added in dictionary , here we are adding   
-                    RepeatedWordCount.Add(sortedList[i], 1); 
+                    RepeatedWordCount.Add(listaSlow[i], 1); 
                 }
             }         
             return RepeatedWordCount;
         }
+        private static Dictionary<char, int> GetPopularityOfCharactersEncounteredInArticle(string article) {
+            List<string> listaSlow = CropTextIntoListWithoutSpecialCharacters(article);
+
+            // krok 3 pogrupowanie po nazwach i zsumowanie wystąpień
+            Dictionary<char, int> RepeatedCharacterCount = new Dictionary<char, int>();
+            for (int i = 0; i < listaSlow.Count; i++) {
+                for (int j = 0; j < listaSlow[i].Length; j++) {
+                    if (RepeatedCharacterCount.ContainsKey(listaSlow[i][j])) {
+                        int value = RepeatedCharacterCount[listaSlow[i][j]];
+                        RepeatedCharacterCount[listaSlow[i][j]] = value + 1;
+                    } else {
+                        // if a string is repeated and not added in dictionary , here we are adding   
+                        RepeatedCharacterCount.Add(listaSlow[i][j], 1);
+                    }
+                }
+            }
+            return RepeatedCharacterCount;
+        }
+   
 
         private static void PrintWordPopularityRanking(string sortingType, int liczba_pozycji = 5, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100) {
             int counter;
             switch (sortingType) {
                 case "liczbaPozycji":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Value)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji)
                             break;
                     }
                     break;
                 case "minDlugosc":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu)
+                                                                            .OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji)
                             break;
                     }
@@ -519,8 +537,9 @@ namespace ApiConsumer
 
                 case "maxDlugosc":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu).OrderByDescending(p => p.Value)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, min_dlugosc_wyrazu, max_dlugosc_wyrazu)
+                                                                            .OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji)
                             break;
                     }
@@ -528,40 +547,70 @@ namespace ApiConsumer
 
                 case "czestotliwoscMalejaca":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Value)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji) break;
                     }
                     break;
 
                 case "czestotliwoscRosnaca":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderBy(p => p.Value)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderBy(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji) break;
                     }
                     break;
 
                 case "alfabetycznieRosnaco":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article).OrderByDescending(p => p.Key)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderByDescending(p => p.Key)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji) break;
                     }
                     break;
 
                 case "alfabetycznieMalejaco":
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, liczba_pozycji).OrderBy(p => p.Key)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, liczba_pozycji)
+                                                                            .OrderBy(p => p.Key)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji) break;
                     }
                     break;
-
+                case "rankingLiter":
+                    counter = 1;
+                    int charactersInArticle = GetNumberOfCharactersFromArticleOnLyLetters(RecentArticle.Article);
+                    foreach (KeyValuePair<char, int> characterCounter in GetPopularityOfCharactersEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderByDescending(p => p.Value)) {
+                        double udzialProcentowy = (characterCounter.Value * 100.0) / charactersInArticle;
+                        Console.WriteLine($"\t[{counter++,2}]# \"{characterCounter.Key,2} \"  [{characterCounter.Value,2}x] [{Math.Round(udzialProcentowy, 2),4}%]");  // Print the Repeated word and its count  
+                        if (counter > liczba_pozycji) { break; }
+                    }
+                    Console.WriteLine("Chcesz wyświetlić wszystkie wyniki? t/n");
+                    string answer = Console.ReadLine().ToLower();
+                    counter = 1;
+                    if (answer == "t") {
+                        foreach (KeyValuePair<char, int> characterCounter in GetPopularityOfCharactersEncounteredInArticle(RecentArticle.Article)
+                                                        .OrderByDescending(p => p.Value)) {
+                            float udzialProcentowy = (characterCounter.Value * 100.0f) / charactersInArticle;
+                            if (counter < 2) {
+                                counter++;
+                                Console.Write($"| [\"{characterCounter.Key,2} \"] => [{characterCounter.Value,2}x({Math.Round(udzialProcentowy,2),4}%)] | ");
+                            } else {
+                                counter = 1;
+                                Console.Write($"[\"{characterCounter.Key,2} \"] => [{characterCounter.Value,2}x({Math.Round(udzialProcentowy, 2),4}%)] |\n");
+                            }
+                        }
+                    }
+                    break;
                 default:
                     counter = 1;
-                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article, liczba_pozycji).OrderByDescending(p => p.Value)) {
-                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10}\"  [{wordWithCounter.Value,2}]x");  // Print the Repeated word and its count  
+                    foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
+                                                                            .OrderByDescending(p => p.Value)) {
+                        Console.WriteLine($"\t[{counter++,2}]# \"{wordWithCounter.Key,10} \"  [{wordWithCounter.Value,2}x]");  // Print the Repeated word and its count  
                         if (counter > liczba_pozycji) break;
                     }
                     break;
