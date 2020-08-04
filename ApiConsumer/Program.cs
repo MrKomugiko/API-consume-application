@@ -162,11 +162,13 @@ namespace ApiConsumer
                              "******************************************************* \n" +
                              "\t[1] Oblicz liczbe znakow. \n" +
                              "\t[2] Oblicz liczbe słów. \n" +
-                             "\t[3] Wskaż najpopularniejsze słowo. \n" +
+                             "\t[3] Pokaz liste najpopularniejszych słow. \n" +
                              "\t[4] Oblicz procentowy udział znaków w artykule. \n" +
-                             "\t[5] Wróć na stronę główną. \n" +
-                             "\t[6] Przejdz do wyszukiwarki. \n"+
-                             "\t[7] Zamknij program. \n");
+                             "\t[5] Wyswietl szczegoly wybranego słowa / znaku \n" +
+                             "\t - - - - - - - - - - - - - - - - - - - - - - - - - -\n" +
+                             "\t[6] Wróć na stronę główną. \n" +
+                             "\t[7] Przejdz do wyszukiwarki. \n"+
+                             "\t[8] Zamknij program. \n");
             
             var answer = Console.ReadLine();
             switch (Convert.ToInt32(answer)) {
@@ -194,6 +196,7 @@ namespace ApiConsumer
                                             "\t\t[42] Częstotliwośc występowania rosnąco,\n" +
                                             "\t\t[43] Sortowanie według wyrazów alfabetycznie rosnąco a-z,\n" +
                                             "\t\t[44] Sortowanie malejąco z-a\n" +
+                                            "\t - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"+
                                             "\t[5] Powrót");
                         answer = Console.ReadLine();
                         switch (answer) {
@@ -241,13 +244,11 @@ namespace ApiConsumer
 
                     break;
                 case 5:
-                    await DisplayMenu();
+                    Console.WriteLine("Podaj słowo (lub jego część) lub znak, dlz któego szukasz informacji. ");
+                    answer = Console.ReadLine();
+                    PrintWordPopularityRanking("wlasneSlowoLubZnak", query: answer);
                     break;
-
                 case 6:
-                    await SearcHEngine();
-                    break;
-                case 7:
                     Environment.Exit(0);
                     break;
                 default:
@@ -426,7 +427,6 @@ namespace ApiConsumer
         #endregion
 
         #region Statistics stuff ---------------------------------------------------------------------------------------------------------------------------------------------------
-
         private static int GetNumberOfCharactersFromArticleWithSpaces(string article) {
             return article.Length;
         }
@@ -511,9 +511,7 @@ namespace ApiConsumer
             }
             return RepeatedCharacterCount;
         }
-   
-
-        private static void PrintWordPopularityRanking(string sortingType, int liczba_pozycji = 5, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100) {
+        private static void PrintWordPopularityRanking(string sortingType, int liczba_pozycji = 5, int min_dlugosc_wyrazu = 0, int max_dlugosc_wyrazu = 100, string query = null) {
             int counter;
             switch (sortingType) {
                 case "liczbaPozycji":
@@ -606,6 +604,13 @@ namespace ApiConsumer
                         }
                     }
                     break;
+                case "wlasneSlowoLubZnak":
+                    // krok 1 sprawdzic czy uzytkownik wpisal slowo czy znak
+                    foreach (KeyValuePair<string, int> specifiedWord in GetPopularityByPassingWordOrCharacter(article:RecentArticle.Article, word:query)
+                                                                            .OrderByDescending(p => p.Key)) {
+                        Console.WriteLine($"\t[\"{specifiedWord.Key,10} \"] [{specifiedWord.Value,2} x]");  // Print the Repeated word and its count  
+                    }
+                    break;
                 default:
                     counter = 1;
                     foreach (KeyValuePair<string, int> wordWithCounter in GetPopularityOfWordEncounteredInArticle(RecentArticle.Article)
@@ -616,39 +621,59 @@ namespace ApiConsumer
                     break;
             }
         }
-    #endregion
-    #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
-    /*
-     * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
-     * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
-     *              rozwiązanie => dodanie "explaintext=1" do url wikipedi
-     * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
-     * [DONE] TODO: Poprawienie jakości wyszukiwania => wyświetlane były już przesunięte pozycje 
-     *              (bez tych najbardziej pasujących, tylko od następnych 10ciu)
-     * [DONE] TODO: Zapisywanie historii przeglądania
-     *        TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
-     * [----] TODO: Wyświetlanie losowego artykułu
-     *
-     *
-     *
-     * [DONE] TODO: Zapisywanie historii 
-     * [DONE] TODO: Tworzenie rankingu
-     * [DONE] TODO: Automatyczna aktualizacja pliku z historią wyszukiwania
-     *        TODO: Plik historii eksportowany jest do pliku podczas kończenia programu
-     * [DONE] TODO: wyświetlanie rankingu
-     * [DONE] TODO: Wyświetlanie posortowanego rankingu
-     * [DONE] TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
-     *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
-     *              który będzie sobie przypisywac w czasie tworzenia
-     * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
-     * [DONE] TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
-     * 
-     * 
-     * 
-     * --------------------------------------------------------------------------------------------------------
-     * TODO: 
-     * TODO:
-     */
-    #endregion
-}
+        private static Dictionary<string, int> GetPopularityByPassingWordOrCharacter(string word, string article) {
+            if (word.Length > 1) {
+                Dictionary<string, int> listOfWords = GetPopularityOfWordEncounteredInArticle(article);
+                Dictionary<string, int> pasujaceSlowaZArtykulu = new Dictionary<string, int>();
+                foreach (var slowo in listOfWords) {
+                    if (slowo.Key.ToLower().Contains(word.ToLower())) {
+                        pasujaceSlowaZArtykulu.Add(slowo.Key,slowo.Value);
+                    }
+                }
+                return pasujaceSlowaZArtykulu;
+            } else {
+                string character = word.ElementAt(0).ToString();
+                var listOfChars = GetPopularityOfCharactersEncounteredInArticle(article);
+                Dictionary<string, int> znakZWystapieniemWTekscie = new Dictionary<string, int>();
+                int sumaWystapienznaku = listOfChars.Where(p => p.Key.ToString() == character).FirstOrDefault().Value;
+                znakZWystapieniemWTekscie.Add(character, sumaWystapienznaku);
+                return znakZWystapieniemWTekscie;
+
+            }
+        }
+        #endregion
+        #region NOTATNIK / TODOs / UWAGI I POMYSŁY ----------------------------------------------------------------------------------------------------------------------------------
+        /*
+         * [DONE] TODO: Zabezpieczenie wprowadzanych danych przed wywaleniem błedu xD = "idiotoodporna" aplikacja
+         * [DONE] TODO: Ogarnięcie w jakikolwiek lepszy sposób wyświetlanie tekstu artykuów z pominięciem znaczników HTML,
+         *              rozwiązanie => dodanie "explaintext=1" do url wikipedi
+         * [DONE] TODO: Zmiana języka wyszukiwarki na polski d[-.o]b 
+         * [DONE] TODO: Poprawienie jakości wyszukiwania => wyświetlane były już przesunięte pozycje 
+         *              (bez tych najbardziej pasujących, tylko od następnych 10ciu)
+         * [DONE] TODO: Zapisywanie historii przeglądania
+         *        TODO: Refraktoryzacja kodu - żeby był troche bardziej czytelny ew. rozbicie na mniejsze metody
+         * [----] TODO: Wyświetlanie losowego artykułu
+         *
+         *
+         *
+         * [DONE] TODO: Zapisywanie historii 
+         * [DONE] TODO: Tworzenie rankingu
+         * [DONE] TODO: Automatyczna aktualizacja pliku z historią wyszukiwania
+         *        TODO: Plik historii eksportowany jest do pliku podczas kończenia programu
+         * [DONE] TODO: wyświetlanie rankingu
+         * [DONE] TODO: Wyświetlanie posortowanego rankingu
+         * [DONE] TODO: Korekcja przyjmowanych wartości w klasie Ranking -> Title, zamiast wyświetlać tytuł z klasy "Search" 
+         *              pokazuje OdwiedzonaStrona z klasy SearchHistory <- ta powinna posiadać oprócz tego tytuł,
+         *              który będzie sobie przypisywac w czasie tworzenia
+         * [DONE] TODO: Dodanie opcji wyświetlenia rankingu poprzez komende w konsoli na początku / końcu programu
+         * [DONE] TODO: Wyodrebnienie Menu, zeby nie było trzeba przeszukiwać wikipedi zeby sprawdzic ranking/zapisac hisotie itp
+         * 
+         * 
+         * 
+         * --------------------------------------------------------------------------------------------------------
+         * TODO: 
+         * TODO:
+         */
+        #endregion
+    }
 }
